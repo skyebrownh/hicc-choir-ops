@@ -1,0 +1,2 @@
+# Require a template so every issue has a directive and acceptance criteria.
+blank_issues_enabled: false

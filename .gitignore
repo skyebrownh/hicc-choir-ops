@@ -1,0 +1,26 @@
+# Secrets: real values live only in .env locally and in the host's settings.
+# .env.example, with placeholder values only, is committed instead.
+.env
+
+# macOS folder metadata
+.DS_Store
+
+# Editor settings, which differ per person
+.vscode/
+.idea/
+
+# The virtual environment uv makes; rebuilt from uv.lock with `uv sync`
+.venv/
+
+# Compiled bytecode, rebuilt on every run
+__pycache__/
+*.py[cod]
+
+# Test and coverage output
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Personal data: member lists, text exports and history CSVs (SPEC.md, Business rules).
+# Never commit these; they stay on Skye's Mac.
+private-data/
