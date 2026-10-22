@@ -10,6 +10,8 @@ from django.core.management import call_command
 from django.db import OperationalError
 from django.test import SimpleTestCase, TestCase, override_settings
 
+from config.env import allowed_hosts
+
 
 class HealthCheckTests(TestCase):
     def test_health_returns_ok_without_login_or_database(self):
@@ -67,3 +69,11 @@ class StaticFilesTests(SimpleTestCase):
 
             self.assertEqual(response.status_code, 200)
             self.assertIn("text/css", response["Content-Type"])
+
+
+class AllowedHostsTests(SimpleTestCase):
+    def test_local_hosts_are_allowed_only_in_debug(self):
+        # Without these, `runserver` at 127.0.0.1 answers 400 once any host is configured.
+        self.assertIn("127.0.0.1", allowed_hosts(debug=True, extra=["app.example.com"]))
+        self.assertNotIn("127.0.0.1", allowed_hosts(debug=False, extra=["app.example.com"]))
+        self.assertIn("app.example.com", allowed_hosts(debug=False, extra=["app.example.com"]))

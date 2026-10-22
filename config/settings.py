@@ -8,7 +8,7 @@ switches behaviour. `DEBUG=false ... check --deploy` checks the production setup
 import os
 from pathlib import Path
 
-from config.env import env_bool, env_list, parse_database_url
+from config.env import allowed_hosts, env_bool, env_list, parse_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -20,7 +20,7 @@ DATABASES = {"default": parse_database_url(os.environ.get("DATABASE_URL"))}
 DEBUG = env_bool("DEBUG")
 
 # healthcheck.railway.app is the hostname Railway's health check calls from.
-ALLOWED_HOSTS = ["healthcheck.railway.app", *env_list("ALLOWED_HOSTS")]
+ALLOWED_HOSTS = allowed_hosts(DEBUG, env_list("ALLOWED_HOSTS"))
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
 
 INSTALLED_APPS = [

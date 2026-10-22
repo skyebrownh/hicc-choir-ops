@@ -31,3 +31,16 @@ def parse_database_url(url):
         "HOST": parsed.hostname or "",
         "PORT": parsed.port or "",
     }
+
+
+def allowed_hosts(debug, extra):
+    """The hosts Django will answer to.
+
+    Giving Django any ALLOWED_HOSTS turns off its automatic localhost list in DEBUG,
+    so the always-allowed Railway health check host would lock `runserver` out of
+    http://127.0.0.1:8000. Add the local names back when DEBUG is on.
+    """
+    hosts = ["healthcheck.railway.app", *extra]
+    if debug:
+        hosts += ["localhost", "127.0.0.1", "[::1]"]
+    return hosts
