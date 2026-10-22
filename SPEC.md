@@ -368,7 +368,6 @@ The app is split into three modules: **accounts** (sign-in, roles), **roster** (
 
 ### Open questions
 
-- **Staging:** should there be a staging copy on Railway like heritage's? It would cost a little more usage. Decide in the first deploy issue.
 - **Domain:** Skye picks and buys one (Porkbun, one umbrella domain) before the sign-in issue.
 
 ## Decisions
@@ -383,3 +382,4 @@ The app is split into three modules: **accounts** (sign-in, roles), **roster** (
 - 2026-10-20: Imports (members, songs, history) are one-time commands, not screens, and their data files never go into git.
 - 2026-10-20: Status, section and Praise Team each keep dated history, so a past event's expected list and rates never change when a member moves. Skipping history for Praise Team would have rewritten past Wednesdays.
 - 2026-10-21: An Excused mark ends a run of absences, so the follow-up flag count starts over (the director's decision). Before, the spec skipped Excused events.
+- 2026-10-22: No staging copy on Railway for v1. The app has a handful of users and Skye tests changes locally against a seeded database; a second service and database would add cost and upkeep for little protection. Revisit if a bad deploy ever reaches the choir.

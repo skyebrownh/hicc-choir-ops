@@ -27,3 +27,6 @@ private-data/
 
 # The Tailwind standalone CLI binary, downloaded per machine (see README)
 bin/
+
+# Gathered by collectstatic at deploy time; rebuilt on every start
+staticfiles/
