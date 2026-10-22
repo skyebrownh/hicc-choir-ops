@@ -93,7 +93,7 @@ Other choir members don't sign in.
 | AT-6 | Each line on a sheet can have a free-text note (for example "2nd service only"), visible to admins and to the member's section leader. |
 | AT-7 | Once an event's date has passed, an expected member with no mark counts as Absent. |
 | AT-8 | Each member's attendance rate shows for a chosen period: last month, last 3 months, last 6 months, last year, or all time. |
-| AT-9 | A member with 2 unexcused absences in a row is flagged for follow-up on their section leader's and the admins' views. |
+| AT-9 | A member who is Absent from 2 expected events in a row is flagged for follow-up on their section leader's and the admins' views. An Excused mark ends the run, so the count starts over. |
 
 ### Songs
 
@@ -153,7 +153,7 @@ Other choir members don't sign in.
 1. A section leader opens this week's Saturday rehearsal.
 2. They see their sections' expected members, with any Excused marks already made.
 3. They tap each person who is Present, or mark Excused, adding a note if needed.
-4. After the event, anyone still unmarked counts as Absent, and members with 2 unexcused absences in a row show the follow-up flag.
+4. After the event, anyone still unmarked counts as Absent, and members who are Absent from 2 events in a row show the follow-up flag.
 
 ### Follow up
 
@@ -180,7 +180,7 @@ Other choir members don't sign in.
 - **Who's expected is fixed when the event happens.** An event's expected list comes from each member's status, section and Praise Team membership on the event's date. All three keep dated history, so later changes never rewrite past rates.
 - **Absent is derived, not stored.** A past, expected, unmarked member is Absent. Marking them later (Present or Excused) replaces that.
 - **Rates count only events the member was expected at while Active.** A break never lowers a rate, and Wednesdays count only for members on the Praise Team that day.
-- **Follow-up flag:** the member's two most recent past expected events are both Absent. Excused events are skipped: they neither count toward the run nor end it.
+- **Follow-up flag:** the member's two most recent past expected events are both Absent. An Excused event ends the run, so the count starts over.
 - **A song counts once per set.** A Sunday song sung at both services is "sung once" that date.
 - **Defaults are copied, not linked.** A slot keeps the leads it was given. Changing a song's default leads never changes past sets.
 - **Unknown is not none.** A history slot with "leads unknown" is left out of lead stats; a slot with no lead (the full choir) counts as sung with no lead.
@@ -368,7 +368,6 @@ The app is split into three modules: **accounts** (sign-in, roles), **roster** (
 
 ### Open questions
 
-- **Follow-up flag and Excused (for the director):** should Excused skip past (as written), or end a run of absences?
 - **Staging:** should there be a staging copy on Railway like heritage's? It would cost a little more usage. Decide in the first deploy issue.
 - **Domain:** Skye picks and buys one (Porkbun, one umbrella domain) before the sign-in issue.
 
@@ -383,3 +382,4 @@ The app is split into three modules: **accounts** (sign-in, roles), **roster** (
 - 2026-10-20: One umbrella domain with a shared sending subdomain for all of Skye's apps, so Resend's 3-domain free limit covers them all.
 - 2026-10-20: Imports (members, songs, history) are one-time commands, not screens, and their data files never go into git.
 - 2026-10-20: Status, section and Praise Team each keep dated history, so a past event's expected list and rates never change when a member moves. Skipping history for Praise Team would have rewritten past Wednesdays.
+- 2026-10-21: An Excused mark ends a run of absences, so the follow-up flag count starts over (the director's decision). Before, the spec skipped Excused events.
