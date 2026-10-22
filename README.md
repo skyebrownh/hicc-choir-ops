@@ -17,15 +17,62 @@ Section leaders mark attendance on their phones and see who needs a follow-up. T
 
 ### Install
 
-Added by the first issue that adds code.
+```sh
+uv sync                      # installs Python packages from uv.lock
+cp .env.example .env         # then edit .env (see the comments inside)
+createdb hicc_choir_ops      # the local Postgres database named in .env.example
+uv run --env-file .env python manage.py migrate
+```
+
+Get Tailwind's standalone CLI (Apple Silicon Mac shown; pick your platform's file from the [releases page](https://github.com/tailwindlabs/tailwindcss/releases/tag/v4.3.3)). It lives in `bin/`, which git ignores:
+
+```sh
+mkdir -p bin
+curl -sL -o bin/tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.3/tailwindcss-macos-arm64
+chmod +x bin/tailwindcss
+```
 
 ### Run
 
-Added by the first issue that adds code.
+```sh
+uv run --env-file .env python manage.py runserver
+```
+
+Open http://127.0.0.1:8000/health/ (shows `ok`), http://127.0.0.1:8000/health/db/ (`ok` when Postgres answers) and http://127.0.0.1:8000/admin/ (the Unfold login). Create a local admin with `uv run --env-file .env python manage.py createsuperuser`.
+
+After changing templates or `tailwind/input.css`, rebuild the CSS and commit `static/app.css`:
+
+```sh
+bin/tailwindcss -i tailwind/input.css -o static/app.css --minify
+```
 
 ### Test
 
-Added by the first issue that adds code.
+```sh
+uv run --env-file .env python manage.py test
+DEBUG=false uv run --env-file .env python manage.py check --deploy
+```
+
+## Deploy
+
+The app runs on Railway (Hobby plan), deployed from GitHub, in the existing heritage-media project: one service for this repo plus its own Postgres. There is no staging copy (SPEC.md, Decisions).
+
+1. In the Railway project, add a Postgres database, then a service from this GitHub repo.
+2. Set these variables on the service:
+
+   | Variable | Value |
+   | --- | --- |
+   | `SECRET_KEY` | a new long random string |
+   | `DATABASE_URL` | reference the Postgres service's `DATABASE_URL` |
+   | `ALLOWED_HOSTS` | the service's address, e.g. `your-app.up.railway.app` (`healthcheck.railway.app` is built in) |
+   | `CSRF_TRUSTED_ORIGINS` | `https://` plus the same address |
+
+   Leave `DEBUG` unset: production runs with it off.
+3. In the service's Settings, set:
+   - **Pre-deploy command:** `python manage.py migrate --noinput` (if it fails, the previous version keeps running)
+   - **Start command:** `python manage.py migrate --check && python manage.py collectstatic --noinput && gunicorn config.wsgi` (`migrate --check` refuses to start if a migration is missing; `collectstatic` gathers the admin's styles and `static/app.css` for WhiteNoise; gunicorn's settings are in `gunicorn.conf.py`)
+   - **Healthcheck path:** `/health/`
+4. Generate a public domain, deploy, and check the deploy log shows the health check passing. Then `/health/db/` should show `ok` and `/admin/` should load over HTTPS.
 
 ## How work happens
 

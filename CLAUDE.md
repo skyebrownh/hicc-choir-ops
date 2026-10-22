@@ -22,7 +22,9 @@ A web app for the HICC choir's director, her assistant and section leaders: rost
 
 Three Django apps (modules): **accounts** (sign-in, roles), **roster** (members, status, section and Praise Team history, events, attendance, rates) and **songs** (songs, sets, stats, history import). Songs may depend on roster for leads; roster never depends on songs.
 
-The rest is added by the first issues that add code.
+The Django project package is `config/` (settings, URLs, the health-check views); `accounts`, `roster` and `songs` are added by their issues. Settings are read from environment variables (`SECRET_KEY` and `DATABASE_URL` are required; `DEBUG` is off unless `true`). There is one settings module and no staging (SPEC.md, Decisions): the environment alone switches behaviour.
+
+Railway: the pre-deploy command, start command and health check path (`/health/`) are set in the Railway dashboard, not in a `railway.json`. README's Deploy section lists them.
 
 ## Conventions
 
@@ -34,7 +36,9 @@ The rest is added by the first issues that add code.
 
 ## Commands
 
-- Run locally: Added by the first issue that adds code.
-- Run tests: Added by the first issue that adds code.
+- Run locally: `uv run --env-file .env python manage.py runserver` (copy `.env.example` to `.env` first)
+- Run tests: `uv run --env-file .env python manage.py test`
+- Deploy check: `DEBUG=false uv run --env-file .env python manage.py check --deploy`
+- Rebuild the CSS after changing templates or `tailwind/input.css`: `bin/tailwindcss -i tailwind/input.css -o static/app.css --minify` (the binary is git-ignored; README says how to get it). Commit the rebuilt `static/app.css`.
 
 Project facts for Skye's personal skills (checks, merge style, whether merging deploys) are in `.claude/workflow.md`; update it with `/setup-project`.

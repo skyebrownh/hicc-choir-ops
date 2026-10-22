@@ -1,0 +1,10 @@
+/* Tailwind v4 input. `@import "tailwindcss"` pulls in the framework; the CLI scans the
+   templates for the classes actually used and writes only those to static/app.css.
+   Rebuild with the command in README.md after changing templates or this file. */
+@import "tailwindcss";
+
+/* No templates exist yet; later issues add them under templates/ and each app's folder. */
+@source "../templates";
+@source "../accounts";
+@source "../roster";
+@source "../songs";

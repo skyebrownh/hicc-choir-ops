@@ -1,0 +1,12 @@
+[project]
+name = "hicc-choir-ops"
+version = "0.1.0"
+description = "Roster, attendance and weekly song-set planning for the HICC choir."
+requires-python = ">=3.12"
+dependencies = [
+    "django>=6.1.2",
+    "django-unfold>=0.110.0",
+    "gunicorn>=26.2.0",
+    "psycopg[binary]>=3.3.6",
+    "whitenoise>=6.12.0",
+]
