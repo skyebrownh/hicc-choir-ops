@@ -1,0 +1,107 @@
+"""Django settings, read entirely from environment variables.
+
+There is one settings module, not separate local and production ones: the app has a
+single production and no staging (SPEC.md, Decisions), so the environment alone
+switches behaviour. `DEBUG=false ... check --deploy` checks the production setup.
+"""
+
+import os
+from pathlib import Path
+
+from config.env import env_bool, env_list, parse_database_url
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Both are required: no default means a missing value crashes at startup, not at 2am.
+SECRET_KEY = os.environ["SECRET_KEY"]
+DATABASES = {"default": parse_database_url(os.environ.get("DATABASE_URL"))}
+
+# Off unless explicitly "true", so forgetting to set it can never expose debug pages.
+DEBUG = env_bool("DEBUG")
+
+# healthcheck.railway.app is the hostname Railway's health check calls from.
+ALLOWED_HOSTS = ["healthcheck.railway.app", *env_list("ALLOWED_HOSTS")]
+CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
+
+INSTALLED_APPS = [
+    # Unfold must come before django.contrib.admin so its templates override the admin's.
+    "unfold",
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+]
+
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    # WhiteNoise serves static files straight from gunicorn; it must sit right after
+    # SecurityMiddleware.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+ROOT_URLCONF = "config.urls"
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = "config.wsgi.application"
+
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
+LANGUAGE_CODE = "en-us"
+# Dates and "this week" use US Eastern time (CLAUDE.md, Conventions).
+TIME_ZONE = "America/New_York"
+USE_I18N = True
+USE_TZ = True
+
+STATIC_URL = "static/"
+# `static/` holds our own files (the built Tailwind CSS); `staticfiles/` is where
+# `collectstatic` gathers everything for WhiteNoise at deploy time.
+STATICFILES_DIRS = [BASE_DIR / "static"]
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Railway's health check calls over plain HTTP, so a redirect to HTTPS would fail it.
+# Matched against the path without its leading slash. Set even in DEBUG so a test can
+# prove it.
+SECURE_REDIRECT_EXEMPT = [r"^health/$"]
+
+if not DEBUG:
+    # Production runs behind Railway's HTTPS proxy, which says so in this header.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 3600  # raise once the site is known to work over HTTPS
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True

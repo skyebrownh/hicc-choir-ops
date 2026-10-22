@@ -24,3 +24,6 @@ htmlcov/
 # Personal data: member lists, text exports and history CSVs (SPEC.md, Business rules).
 # Never commit these; they stay on Skye's Mac.
 private-data/
+
+# The Tailwind standalone CLI binary, downloaded per machine (see README)
+bin/
