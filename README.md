@@ -79,7 +79,7 @@ The app runs on Railway (Hobby plan), deployed from GitHub, in the existing heri
    - **Healthcheck path:** `/health/`
 4. Generate a public domain, deploy, and check the deploy log shows the health check passing. Then `/health/db/` should show `ok` and `/admin/` should load over HTTPS.
 
-To run a command in production, use `railway ssh --service hicc-choir-ops -- "<command>"`, which runs inside the service. `railway run` doesn't work for this: it runs on your Mac, which can't reach the database on Railway's internal network.
+To run a command in production, use `railway ssh --service hicc-choir-ops -- "<command>"`, which runs inside the service (the example below shows how to quote a command that itself contains quotes). `railway run` doesn't work for this: it runs on your Mac, which can't reach the database on Railway's internal network.
 
 After the first deploy, check the sign-in limit sees real visitor addresses. Request a code from a phone on mobile data, then run this to show the three newest requests:
 
@@ -87,7 +87,7 @@ After the first deploy, check the sign-in limit sees real visitor addresses. Req
 railway ssh --service hicc-choir-ops -- "python manage.py shell -c 'from accounts.models import SignInRequest as S; print(list(S.objects.order_by(\"-created_at\").values_list(\"ip_address\",\"created_at\")[:3]))'"
 ```
 
-The newest address should be the phone's public address, not a Railway internal one (10.x.x.x or 100.x.x.x). If not, set `NUM_PROXIES` to `2`: no code change needed.
+The first address in the list is the newest, and it should be the phone's public address, not a Railway internal one (10.x.x.x or 100.x.x.x). If not, set `NUM_PROXIES` to `2`: no code change needed.
 
 ### One-time database reset (issue #4)
 
