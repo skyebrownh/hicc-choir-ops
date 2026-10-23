@@ -29,5 +29,7 @@ def over_limit(email, ip):
 
 def record(email, ip):
     """Remember an allowed request, and forget ones too old to count any more."""
-    SignInRequest.objects.filter(created_at__lte=timezone.now() - WINDOW).delete()
-    SignInRequest.objects.create(email=email.lower(), ip_address=ip)
+    now = timezone.now()
+    SignInRequest.objects.filter(created_at__lte=now - WINDOW).delete()
+    # Passed explicitly (not left to the model default) so there is one clock to read.
+    SignInRequest.objects.create(email=email.lower(), ip_address=ip, created_at=now)

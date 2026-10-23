@@ -440,3 +440,32 @@ class RateLimitTests(TestCase):
             self.request_code("leader@example.com")
 
         self.assertRedirects(self.request_code("second@example.com"), "/signin/code/")
+
+    def test_ac7_requests_work_again_once_an_hour_has_passed(self):
+        for _ in range(5):
+            self.request_code()
+        self.assertContains(self.request_code(), "Too many requests", status_code=429)
+        later = timezone.now() + timedelta(hours=1, seconds=1)
+
+        with mock.patch("django.utils.timezone.now", return_value=later):
+            self.assertRedirects(self.request_code(), "/signin/code/")
+
+    def test_ac7_the_limit_still_holds_just_inside_the_hour(self):
+        for _ in range(5):
+            self.request_code()
+        later = timezone.now() + timedelta(minutes=59)
+
+        with mock.patch("django.utils.timezone.now", return_value=later):
+            self.assertContains(self.request_code(), "Too many requests", status_code=429)
+
+    def test_ac7_refused_requests_do_not_count_so_the_wait_ends_with_the_oldest_allowed_one(self):
+        start = timezone.now()
+        for _ in range(5):
+            self.request_code()  # all five at `start`
+        # Keep trying while refused: if these counted, they would extend the wait.
+        with mock.patch("django.utils.timezone.now", return_value=start + timedelta(minutes=50)):
+            for _ in range(10):
+                self.assertContains(self.request_code(), "Too many requests", status_code=429)
+
+        with mock.patch("django.utils.timezone.now", return_value=start + timedelta(hours=1, seconds=1)):
+            self.assertRedirects(self.request_code(), "/signin/code/")
