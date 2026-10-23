@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Enter your code · HICC Choir Ops{% endblock %}
+{% block content %}
+<h1 class="mb-2 text-2xl font-bold">Check your email</h1>
+<p class="mb-4">We sent a 6-digit code to {{ email }}.</p>
+<form method="post" class="space-y-4">
+  {% csrf_token %}
+  <div>
+    <label for="{{ form.code.id_for_label }}" class="mb-1 block font-medium">{{ form.code.label }}</label>
+    <input type="text" name="code" id="{{ form.code.id_for_label }}" maxlength="6"
+           inputmode="numeric" autocomplete="one-time-code" required autofocus
+           class="block min-h-11 w-full rounded border border-gray-400 px-3 text-base">
+  </div>
+  {% if error %}<p role="alert" class="text-red-800">{{ error }}</p>{% endif %}
+  <button type="submit" class="min-h-11 w-full rounded bg-blue-800 px-4 font-medium text-white">Sign in</button>
+</form>
+<p class="mt-4"><a href="{% url 'request-code' %}" class="inline-block min-h-11 py-2 text-blue-800 underline">Request a new code</a></p>
+{% endblock %}

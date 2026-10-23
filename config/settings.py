@@ -32,6 +32,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",  # Django's checks require it for ArrayField
+    "accounts",
 ]
 
 MIDDLEWARE = [
@@ -52,7 +54,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -63,6 +65,22 @@ TEMPLATES = [
         },
     },
 ]
+
+# AC-1: accounts sign in by emailed code, so our Account replaces Django's user.
+AUTH_USER_MODEL = "accounts.Account"
+LOGIN_URL = "/signin/"
+LOGIN_REDIRECT_URL = "/"
+
+# AC-1: codes go out through Resend's HTTPS API (Railway Hobby blocks SMTP). Locally
+# with no key they print to the server console instead. Only DEBUG allows that
+# fallback: in production a missing key makes sending fail loudly, not silently.
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+RESEND_FROM_ADDRESS = os.environ.get("RESEND_FROM_ADDRESS", "")
+if DEBUG and not RESEND_API_KEY:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+else:
+    EMAIL_BACKEND = "accounts.email.ResendEmailBackend"
+DEFAULT_FROM_EMAIL = RESEND_FROM_ADDRESS or "HICC Choir Ops <signin@localhost>"
 
 WSGI_APPLICATION = "config.wsgi.application"
 

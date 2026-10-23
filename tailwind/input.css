@@ -3,7 +3,7 @@
    Rebuild with the command in README.md after changing templates or this file. */
 @import "tailwindcss";
 
-/* No templates exist yet; later issues add them under templates/ and each app's folder. */
+/* Shared templates are in templates/; each app keeps its own under its folder. */
 @source "../templates";
 @source "../accounts";
 @source "../roster";

@@ -10,6 +10,7 @@ from django.core.management import call_command
 from django.db import OperationalError
 from django.test import SimpleTestCase, TestCase, override_settings
 
+from accounts.models import Account
 from config.env import allowed_hosts
 
 
@@ -52,8 +53,16 @@ class HealthCheckTests(TestCase):
 
 
 class AdminTests(TestCase):
-    def test_admin_login_renders_with_unfold_styling(self):
+    def test_admin_login_sends_people_to_the_code_sign_in(self):
         response = self.client.get("/admin/login/")
+
+        self.assertRedirects(response, "/signin/")
+
+    def test_admin_renders_with_unfold_styling_for_a_signed_in_admin(self):
+        admin = Account.objects.create_superuser("admin@example.com")
+        self.client.force_login(admin)
+
+        response = self.client.get("/admin/")
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "unfold")

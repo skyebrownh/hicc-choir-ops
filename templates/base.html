@@ -1,0 +1,16 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}HICC Choir Ops{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'app.css' %}">
+</head>
+{# 16px text everywhere (NFR): it also stops iPhone Safari zooming into inputs. #}
+<body class="bg-gray-50 text-base text-gray-900">
+  <main class="mx-auto max-w-md p-4">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

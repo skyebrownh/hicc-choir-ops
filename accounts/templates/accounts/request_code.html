@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Sign in · HICC Choir Ops{% endblock %}
+{% block content %}
+<h1 class="mb-4 text-2xl font-bold">Sign in</h1>
+<form method="post" class="space-y-4">
+  {% csrf_token %}
+  <div>
+    <label for="{{ form.email.id_for_label }}" class="mb-1 block font-medium">{{ form.email.label }}</label>
+    <input type="email" name="email" id="{{ form.email.id_for_label }}" value="{{ form.email.value|default:'' }}"
+           autocomplete="email" required autofocus
+           class="block min-h-11 w-full rounded border border-gray-400 px-3 text-base">
+  </div>
+  {% if error %}<p role="alert" class="text-red-800">{{ error }}</p>{% endif %}
+  <button type="submit" class="min-h-11 w-full rounded bg-blue-800 px-4 font-medium text-white">Email me a code</button>
+</form>
+{% endblock %}
