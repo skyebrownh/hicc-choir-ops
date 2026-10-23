@@ -363,3 +363,25 @@ class EmailBackendChoiceTests(SimpleTestCase):
 
     def test_ac1_production_without_a_key_still_uses_resend_so_sending_fails_loudly(self):
         self.assertEqual(self.backend_for(DEBUG="false"), "accounts.email.ResendEmailBackend")
+
+
+@FAST_HASHER
+class RateLimitTests(TestCase):
+    """AC-7: code requests are capped per email address and per IP address, per hour."""
+
+    def setUp(self):
+        Account.objects.create_user("leader@example.com", sections=["alto"])
+
+    def request_code(self, email="leader@example.com", **extra):
+        return self.client.post("/signin/", {"email": email}, **extra)
+
+    def test_ac7_the_sixth_request_for_one_email_in_an_hour_is_refused(self):
+        for _ in range(5):
+            self.assertRedirects(self.request_code(), "/signin/code/")
+        sent_before = len(mail.outbox)
+
+        response = self.request_code()
+
+        self.assertContains(response, "Too many requests. Please try again later.", status_code=429)
+        self.assertEqual(len(mail.outbox), sent_before)
+        self.assertEqual(SignInCode.objects.count(), 1)  # the 5th request's code only
