@@ -41,9 +41,9 @@ class SignInTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["leader@example.com"])
 
-        self.assertRedirects(self.enter_code(sent_code()), "/")
+        self.assertRedirects(self.enter_code(sent_code()), "/", target_status_code=302)
 
-        self.assertContains(self.client.get("/"), "leader@example.com")
+        self.assertContains(self.client.get("/", follow=True), "leader@example.com")
 
     def test_ac1_email_is_matched_ignoring_case(self):
         self.assertRedirects(self.request_code("Leader@Example.com"), "/signin/code/")
@@ -65,7 +65,7 @@ class SignInTests(TestCase):
         self.assertEqual(SignInCode.objects.count(), 1)
         if first != second:  # one chance in a million they match
             self.assertContains(self.enter_code(first), "isn&#x27;t right")
-        self.assertRedirects(self.enter_code(second), "/")
+        self.assertRedirects(self.enter_code(second), "/", target_status_code=302)
 
     def test_ac1_two_accounts_cannot_differ_only_by_email_case(self):
         with self.assertRaises(IntegrityError), transaction.atomic():
@@ -93,7 +93,7 @@ class SignInTests(TestCase):
         later = timezone.now() + timedelta(minutes=9, seconds=59)
 
         with mock.patch("accounts.codes.timezone.now", return_value=later):
-            self.assertRedirects(self.enter_code(code), "/")
+            self.assertRedirects(self.enter_code(code), "/", target_status_code=302)
 
     def test_ac2_a_code_works_once(self):
         self.request_code()
@@ -190,6 +190,25 @@ class StaySignedInTests(TestCase):
 
         self.assertEqual(int(response.cookies["sessionid"]["max-age"]), 90 * 24 * 60 * 60)
 
+
+    def test_ac4_the_front_door_sends_an_admin_to_the_week_ahead_page(self):
+        self.client.force_login(self.admin)
+
+        self.assertRedirects(self.client.get("/"), "/week/")
+        self.assertContains(self.client.get("/week/"), "Week ahead")
+
+    def test_ac4_the_front_door_sends_a_section_leader_to_the_attendance_page(self):
+        self.client.force_login(self.leader)
+
+        self.assertRedirects(self.client.get("/"), "/attendance/")
+        self.assertContains(self.client.get("/attendance/"), "Attendance")
+
+    def test_ac4_a_role_that_may_not_see_a_page_gets_not_found(self):
+        self.client.force_login(self.leader)
+        self.assertEqual(self.client.get("/week/").status_code, 404)
+
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.get("/attendance/").status_code, 404)
 
     def test_ac4_a_signed_out_visitor_is_sent_to_sign_in_from_any_page(self):
         for path in ("/", "/week/", "/no-such-page/", "/admin/"):
