@@ -64,11 +64,11 @@ Other choir members don't sign in.
 | --- | --- |
 | AC-1 | A user signs in by entering their email address and then a 6-digit code emailed to them. There are no passwords. |
 | AC-2 | A code expires after 10 minutes, works once, and stops working after 5 wrong tries. |
-| AC-3 | Entering an email that has no account shows the same "check your email" message as a real one, and sends nothing. |
+| AC-3 | Entering an email that has no account shows a "no account for that email" message, and sends nothing. |
 | AC-4 | A signed-in user stays signed in on that device for 90 days, and can sign out. |
 | AC-5 | Admins can give a member an account as a section leader for one or more sections, or as an admin; change the role; or remove the account. |
 | AC-6 | An admin account can exist without a member record (the director, Skye), so it never appears on attendance sheets. |
-| AC-7 | At most 5 codes can be requested per email address per hour, and a matching limit applies per IP address. Over the limit, the page shows the same "check your email" message as AC-3. |
+| AC-7 | At most 5 codes can be requested per email address per hour, and a matching limit applies per IP address. Over the limit, the page shows "Too many requests. Please try again later." |
 
 ### Roster
 
@@ -383,3 +383,4 @@ The app is split into three modules: **accounts** (sign-in, roles), **roster** (
 - 2026-10-20: Status, section and Praise Team each keep dated history, so a past event's expected list and rates never change when a member moves. Skipping history for Praise Team would have rewritten past Wednesdays.
 - 2026-10-21: An Excused mark ends a run of absences, so the follow-up flag count starts over (the director's decision). Before, the spec skipped Excused events.
 - 2026-10-22: No staging copy on Railway for v1. The app has a handful of users and Skye tests changes locally against a seeded database; a second service and database would add cost and upkeep for little protection. Revisit if a bad deploy ever reaches the choir.
+- 2026-10-22: The sign-in page says when an email has no account (AC-3), and the over-the-limit page says "too many requests" (AC-7). The earlier rule of showing the same "check your email" message for everything is dropped: the choir is small and the friendlier message matters more than hiding which emails have accounts.

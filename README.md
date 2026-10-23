@@ -38,7 +38,9 @@ chmod +x bin/tailwindcss
 uv run --env-file .env python manage.py runserver
 ```
 
-Open http://127.0.0.1:8000/health/ (shows `ok`), http://127.0.0.1:8000/health/db/ (`ok` when Postgres answers) and http://127.0.0.1:8000/admin/ (the Unfold login). Create a local admin with `uv run --env-file .env python manage.py createsuperuser`.
+Open http://127.0.0.1:8000/health/ (shows `ok`), http://127.0.0.1:8000/health/db/ (`ok` when Postgres answers) and http://127.0.0.1:8000/admin/ (the Unfold login). Create a local admin with `uv run --env-file .env python manage.py createsuperuser` (it asks for an email only: there are no passwords), then sign in at http://127.0.0.1:8000/signin/. With no `RESEND_API_KEY` set, the 6-digit code prints in the terminal running the server.
+
+Accounts replaced Django's built-in user (issue #4). A database migrated before that has to be reset once: `dropdb hicc_choir_ops && createdb hicc_choir_ops`, then `migrate` and `createsuperuser` again.
 
 After changing templates or `tailwind/input.css`, rebuild the CSS and commit `static/app.css`:
 
@@ -66,6 +68,8 @@ The app runs on Railway (Hobby plan), deployed from GitHub, in the existing heri
    | `DATABASE_URL` | reference the Postgres service's `DATABASE_URL` |
    | `ALLOWED_HOSTS` | the service's address, e.g. `your-app.up.railway.app` (`healthcheck.railway.app` is built in) |
    | `CSRF_TRUSTED_ORIGINS` | `https://` plus the same address |
+   | `RESEND_API_KEY` | a Resend API key with sending access to the sending subdomain |
+   | `RESEND_FROM_ADDRESS` | e.g. `HICC Choir Ops <signin@mail.hicctools.com>` (on the domain verified in Resend) |
 
    Leave `DEBUG` unset: production runs with it off.
 3. In the service's Settings, set:
@@ -73,6 +77,10 @@ The app runs on Railway (Hobby plan), deployed from GitHub, in the existing heri
    - **Start command:** `python manage.py migrate --check && python manage.py collectstatic --noinput && gunicorn config.wsgi` (`migrate --check` refuses to start if a migration is missing; `collectstatic` gathers the admin's styles and `static/app.css` for WhiteNoise; gunicorn's settings are in `gunicorn.conf.py`)
    - **Healthcheck path:** `/health/`
 4. Generate a public domain, deploy, and check the deploy log shows the health check passing. Then `/health/db/` should show `ok` and `/admin/` should load over HTTPS.
+
+### One-time database reset (issue #4)
+
+The accounts app replaces Django's user model, which can't be swapped once migrations have run. Before the first deploy that includes it, reset the production database (this deletes its data: only the admin login exists so far), then after the deploy create the admin with `railway run python manage.py createsuperuser`.
 
 ## How work happens
 
