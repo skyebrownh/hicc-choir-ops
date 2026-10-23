@@ -191,6 +191,25 @@ class StaySignedInTests(TestCase):
         self.assertEqual(int(response.cookies["sessionid"]["max-age"]), 90 * 24 * 60 * 60)
 
 
+    def test_ac4_a_signed_out_visitor_is_sent_to_sign_in_from_any_page(self):
+        for path in ("/", "/week/", "/no-such-page/", "/admin/"):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+
+                self.assertRedirects(
+                    response, f"/signin/?next={path}", fetch_redirect_response=False
+                )
+
+    def test_ac4_the_health_checks_and_sign_in_pages_need_no_sign_in(self):
+        for path in ("/health/", "/health/db/", "/signin/"):
+            with self.subTest(path=path):
+                self.assertEqual(self.client.get(path).status_code, 200)
+
+        # With no email in the session this page sends you back to the start itself. A
+        # "?next=" on the redirect would mean the sign-in check stepped in instead.
+        self.assertRedirects(self.client.get("/signin/code/"), "/signin/")
+
+
 class ResendBackendTests(SimpleTestCase):
     def message(self):
         return mail.EmailMessage("Subject", "Body 123456", "HICC <signin@mail.example.com>", ["a@example.com"])
