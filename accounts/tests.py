@@ -469,3 +469,34 @@ class RateLimitTests(TestCase):
 
         with mock.patch("django.utils.timezone.now", return_value=start + timedelta(hours=1, seconds=1)):
             self.assertRedirects(self.request_code(), "/signin/code/")
+
+    @override_settings(NUM_PROXIES=0)
+    def test_ac7_with_no_proxy_the_ip_is_the_connections_and_a_forged_forwarded_header_is_ignored(self):
+        for number in range(20):
+            # Each request claims a different origin; with no proxy these claims mean nothing.
+            self.request_code(f"guess{number}@example.com", HTTP_X_FORWARDED_FOR=f"9.9.9.{number}")
+
+        response = self.request_code("guess20@example.com", HTTP_X_FORWARDED_FOR="9.9.9.99")
+
+        self.assertContains(response, "Too many requests", status_code=429)
+
+    @override_settings(NUM_PROXIES=1)
+    def test_ac7_with_one_proxy_the_ip_is_the_last_forwarded_entry(self):
+        for number in range(20):
+            self.request_code(f"guess{number}@example.com", REMOTE_ADDR="10.1.1.1", HTTP_X_FORWARDED_FOR="203.0.113.7")
+
+        same = self.request_code("guess20@example.com", REMOTE_ADDR="10.1.1.2", HTTP_X_FORWARDED_FOR="203.0.113.7")
+        other = self.request_code("guess20@example.com", REMOTE_ADDR="10.1.1.1", HTTP_X_FORWARDED_FOR="203.0.113.8")
+
+        self.assertContains(same, "Too many requests", status_code=429)
+        self.assertContains(other, "no account for that email")
+
+    @override_settings(NUM_PROXIES=1)
+    def test_ac7_with_one_proxy_a_forged_first_entry_does_not_dodge_the_limit(self):
+        for number in range(20):
+            # The client invents a new first entry each time; the proxy appended the real one last.
+            self.request_code(f"guess{number}@example.com", HTTP_X_FORWARDED_FOR=f"1.2.3.{number}, 203.0.113.7")
+
+        response = self.request_code("guess20@example.com", HTTP_X_FORWARDED_FOR="1.2.3.99, 203.0.113.7")
+
+        self.assertContains(response, "Too many requests", status_code=429)

@@ -2,6 +2,7 @@
 
 from datetime import timedelta
 
+from django.conf import settings
 from django.utils import timezone
 
 from accounts.models import SignInRequest
@@ -14,6 +15,18 @@ WINDOW = timedelta(hours=1)
 
 
 def client_ip(request):
+    """The visitor's address, for the per-IP limit.
+
+    X-Forwarded-For is written by whoever sends the request, so it can only be
+    trusted for the entries our own proxies added. Each proxy appends the address
+    it saw to the END of the list, so with NUM_PROXIES proxies in front of us the
+    real visitor is that many entries from the end. Anything earlier could be forged.
+    With no proxy (0) we ignore the header entirely.
+    """
+    proxies = settings.NUM_PROXIES
+    forwarded = [part.strip() for part in request.META.get("HTTP_X_FORWARDED_FOR", "").split(",") if part.strip()]
+    if proxies > 0 and len(forwarded) >= proxies:
+        return forwarded[-proxies]
     return request.META["REMOTE_ADDR"]
 
 

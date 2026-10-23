@@ -77,6 +77,10 @@ SESSION_COOKIE_AGE = 90 * 24 * 60 * 60
 LOGIN_URL = "/signin/"
 LOGIN_REDIRECT_URL = "/"
 
+# AC-7: how many reverse proxies sit in front of the app (Railway's is 1). The sign-in
+# limit uses this to find the real visitor address in X-Forwarded-For; 0 ignores the header.
+NUM_PROXIES = int(os.environ.get("NUM_PROXIES", "0"))
+
 # AC-1: codes go out through Resend's HTTPS API (Railway Hobby blocks SMTP). Locally
 # with no key they print to the server console instead. Only DEBUG allows that
 # fallback: in production a missing key makes sending fail loudly, not silently.
