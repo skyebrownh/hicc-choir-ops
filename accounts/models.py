@@ -2,6 +2,7 @@ from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
 from django.db.models.functions import Lower
+from django.utils import timezone
 
 
 class Section(models.TextChoices):
@@ -82,3 +83,21 @@ class SignInCode(models.Model):
     code = models.CharField(max_length=128)  # make_password hash, never the digits
     expires_at = models.DateTimeField()
     attempts = models.PositiveSmallIntegerField(default=0)
+
+
+class SignInRequest(models.Model):
+    """One allowed request for a sign-in code (AC-7). Counted to enforce the hourly limits.
+
+    Kept in Postgres rather than Django's cache: the cache is per process and
+    gunicorn runs several workers, so each would count separately.
+    """
+
+    email = models.EmailField()  # stored lowercased, so spellings share one limit
+    ip_address = models.GenericIPAddressField()
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["email", "created_at"]),
+            models.Index(fields=["ip_address", "created_at"]),
+        ]

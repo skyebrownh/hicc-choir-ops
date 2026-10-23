@@ -4,7 +4,7 @@ from django.contrib.auth import login, logout
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
-from accounts import codes
+from accounts import codes, ratelimit
 from accounts.forms import CodeForm, EmailForm
 from accounts.models import Account, Role
 from accounts.permissions import role_required
@@ -27,6 +27,13 @@ def request_code(request):
     error = None
     if request.method == "POST" and form.is_valid():
         email = form.cleaned_data["email"]
+        ip = ratelimit.client_ip(request)
+        if ratelimit.over_limit(email, ip):
+            # AC-7: send nothing and store nothing. Refused requests aren't recorded.
+            error = "Too many requests. Please try again later."
+            return render(request, "accounts/request_code.html", {"form": form, "error": error}, status=429)
+        # AC-7: record before the account lookup, so unknown emails count too.
+        ratelimit.record(email, ip)
         account = Account.objects.filter(email__iexact=email).first()
         if account is None:
             # AC-3: say so, send nothing and store nothing.

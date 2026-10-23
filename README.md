@@ -70,6 +70,7 @@ The app runs on Railway (Hobby plan), deployed from GitHub, in the existing heri
    | `CSRF_TRUSTED_ORIGINS` | `https://` plus the same address |
    | `RESEND_API_KEY` | a Resend API key with sending access to the sending subdomain |
    | `RESEND_FROM_ADDRESS` | e.g. `HICC Choir Ops <signin@mail.hicctools.com>` (on the domain verified in Resend) |
+   | `NUM_PROXIES` | `1`: Railway's proxy sits in front of the app, so the sign-in limit (AC-7) reads the visitor's address from the end of `X-Forwarded-For` |
 
    Leave `DEBUG` unset: production runs with it off.
 3. In the service's Settings, set:
@@ -77,6 +78,8 @@ The app runs on Railway (Hobby plan), deployed from GitHub, in the existing heri
    - **Start command:** `python manage.py migrate --check && python manage.py collectstatic --noinput && gunicorn config.wsgi` (`migrate --check` refuses to start if a migration is missing; `collectstatic` gathers the admin's styles and `static/app.css` for WhiteNoise; gunicorn's settings are in `gunicorn.conf.py`)
    - **Healthcheck path:** `/health/`
 4. Generate a public domain, deploy, and check the deploy log shows the health check passing. Then `/health/db/` should show `ok` and `/admin/` should load over HTTPS.
+
+After the first deploy, check the sign-in limit sees real visitor addresses. Request a code from a phone on mobile data, then in `railway run python manage.py shell` run `from accounts.models import SignInRequest; print(SignInRequest.objects.latest("created_at").ip_address)`. It should be the phone's public address, not a Railway internal one (10.x.x.x or 100.x.x.x). If not, set `NUM_PROXIES` to `2`: no code change needed.
 
 ### One-time database reset (issue #4)
 

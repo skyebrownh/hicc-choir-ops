@@ -68,7 +68,7 @@ Other choir members don't sign in.
 | AC-4 | A signed-in user stays signed in on that device for 90 days, and can sign out. |
 | AC-5 | Admins can give a member an account as a section leader for one or more sections, or as an admin; change the role; or remove the account. |
 | AC-6 | An admin account can exist without a member record (the director, Skye), so it never appears on attendance sheets. |
-| AC-7 | At most 5 codes can be requested per email address per hour, and a matching limit applies per IP address. Over the limit, the page shows "Too many requests. Please try again later." |
+| AC-7 | At most 5 codes can be requested per email address per hour, and at most 20 per IP address per hour. Over the limit, the page shows "Too many requests. Please try again later." |
 
 ### Roster
 
@@ -384,3 +384,4 @@ The app is split into three modules: **accounts** (sign-in, roles), **roster** (
 - 2026-10-21: An Excused mark ends a run of absences, so the follow-up flag count starts over (the director's decision). Before, the spec skipped Excused events.
 - 2026-10-22: No staging copy on Railway for v1. The app has a handful of users and Skye tests changes locally against a seeded database; a second service and database would add cost and upkeep for little protection. Revisit if a bad deploy ever reaches the choir.
 - 2026-10-22: The sign-in page says when an email has no account (AC-3), and the over-the-limit page says "too many requests" (AC-7). The earlier rule of showing the same "check your email" message for everything is dropped: the choir is small and the friendlier message matters more than hiding which emails have accounts.
+- 2026-10-23: The IP limit (20 an hour) is higher than the email limit (5 an hour) because the whole choir may share one church wifi address (AC-7).
