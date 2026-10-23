@@ -175,6 +175,22 @@ class SignInTests(TestCase):
         self.assertFalse(owner.has_usable_password())
 
 
+class StaySignedInTests(TestCase):
+    """AC-4: stay signed in, sign out, and each role's own home page."""
+
+    def setUp(self):
+        self.admin = Account.objects.create_user("boss@example.com", role=Role.ADMIN)
+        self.leader = Account.objects.create_user("leader@example.com", sections=["alto"])
+
+    @FAST_HASHER
+    def test_ac4_a_signed_in_session_lasts_90_days(self):
+        # Sign in for real: force_login sets its own cookie, so it can't show what we send.
+        self.client.post("/signin/", {"email": "boss@example.com"})
+        response = self.client.post("/signin/code/", {"code": sent_code()})
+
+        self.assertEqual(int(response.cookies["sessionid"]["max-age"]), 90 * 24 * 60 * 60)
+
+
 class ResendBackendTests(SimpleTestCase):
     def message(self):
         return mail.EmailMessage("Subject", "Body 123456", "HICC <signin@mail.example.com>", ["a@example.com"])
