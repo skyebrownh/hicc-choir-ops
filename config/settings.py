@@ -46,6 +46,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # AC-4: after authentication, because it needs to know who is signed in.
+    "accounts.middleware.LoginRequiredMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -69,6 +71,9 @@ TEMPLATES = [
 
 # AC-1: accounts sign in by emailed code, so our Account replaces Django's user.
 AUTH_USER_MODEL = "accounts.Account"
+# AC-4: stay signed in for 90 days from sign-in. Django's default is a fixed lifetime
+# (SESSION_SAVE_EVERY_REQUEST is off), so this is not extended by use.
+SESSION_COOKIE_AGE = 90 * 24 * 60 * 60
 LOGIN_URL = "/signin/"
 LOGIN_REDIRECT_URL = "/"
 

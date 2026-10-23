@@ -41,9 +41,9 @@ class SignInTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["leader@example.com"])
 
-        self.assertRedirects(self.enter_code(sent_code()), "/")
+        self.assertRedirects(self.enter_code(sent_code()), "/", target_status_code=302)
 
-        self.assertContains(self.client.get("/"), "leader@example.com")
+        self.assertContains(self.client.get("/", follow=True), "leader@example.com")
 
     def test_ac1_email_is_matched_ignoring_case(self):
         self.assertRedirects(self.request_code("Leader@Example.com"), "/signin/code/")
@@ -65,7 +65,7 @@ class SignInTests(TestCase):
         self.assertEqual(SignInCode.objects.count(), 1)
         if first != second:  # one chance in a million they match
             self.assertContains(self.enter_code(first), "isn&#x27;t right")
-        self.assertRedirects(self.enter_code(second), "/")
+        self.assertRedirects(self.enter_code(second), "/", target_status_code=302)
 
     def test_ac1_two_accounts_cannot_differ_only_by_email_case(self):
         with self.assertRaises(IntegrityError), transaction.atomic():
@@ -93,7 +93,7 @@ class SignInTests(TestCase):
         later = timezone.now() + timedelta(minutes=9, seconds=59)
 
         with mock.patch("accounts.codes.timezone.now", return_value=later):
-            self.assertRedirects(self.enter_code(code), "/")
+            self.assertRedirects(self.enter_code(code), "/", target_status_code=302)
 
     def test_ac2_a_code_works_once(self):
         self.request_code()
@@ -173,6 +173,117 @@ class SignInTests(TestCase):
         owner = Account.objects.get(email="owner@example.com")
         self.assertEqual(owner.role, Role.ADMIN)
         self.assertFalse(owner.has_usable_password())
+
+
+class StaySignedInTests(TestCase):
+    """AC-4: stay signed in, sign out, and each role's own home page."""
+
+    def setUp(self):
+        self.admin = Account.objects.create_user("boss@example.com", role=Role.ADMIN)
+        self.leader = Account.objects.create_user("leader@example.com", sections=["alto"])
+
+    @FAST_HASHER
+    def test_ac4_a_signed_in_session_lasts_90_days(self):
+        # Sign in for real: force_login sets its own cookie, so it can't show what we send.
+        self.client.post("/signin/", {"email": "boss@example.com"})
+        response = self.client.post("/signin/code/", {"code": sent_code()})
+
+        self.assertEqual(int(response.cookies["sessionid"]["max-age"]), 90 * 24 * 60 * 60)
+
+    def test_ac4_the_front_door_sends_an_admin_to_the_week_ahead_page(self):
+        self.client.force_login(self.admin)
+
+        self.assertRedirects(self.client.get("/"), "/week/")
+        self.assertContains(self.client.get("/week/"), "Week ahead")
+
+    def test_ac4_the_front_door_sends_a_section_leader_to_the_attendance_page(self):
+        self.client.force_login(self.leader)
+
+        self.assertRedirects(self.client.get("/"), "/attendance/")
+        self.assertContains(self.client.get("/attendance/"), "Attendance")
+
+    def test_ac4_a_role_that_may_not_see_a_page_gets_not_found(self):
+        self.client.force_login(self.leader)
+        self.assertEqual(self.client.get("/week/").status_code, 404)
+
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.get("/attendance/").status_code, 404)
+
+    def test_ac4_signing_out_ends_the_session(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.post("/signout/")
+
+        self.assertRedirects(response, "/signin/")
+        self.assertRedirects(
+            self.client.get("/week/"), "/signin/?next=/week/", fetch_redirect_response=False
+        )
+
+    def test_ac4_signing_out_by_a_plain_link_does_nothing(self):
+        self.client.force_login(self.admin)
+
+        self.assertEqual(self.client.get("/signout/").status_code, 405)
+
+        self.assertEqual(self.client.get("/week/").status_code, 200)
+
+    def test_ac4_signed_in_pages_show_a_sign_out_button_and_sign_in_pages_do_not(self):
+        self.assertNotContains(self.client.get("/signin/"), "Sign out")
+
+        self.client.force_login(self.admin)
+
+        self.assertContains(self.client.get("/week/"), "Sign out")
+
+    def test_ac4_a_public_page_typed_without_its_trailing_slash_still_reaches_it(self):
+        # Django adds the missing slash for us, but only if the sign-in check lets the
+        # request through to find that out.
+        for path in ("/health", "/health/db", "/signin", "/signin/code"):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+
+                self.assertRedirects(
+                    response, f"{path}/", status_code=301, fetch_redirect_response=False
+                )
+
+    def test_ac4_a_path_that_only_starts_like_a_public_one_is_still_private(self):
+        for path in ("/healthz/", "/signinx/", "/healthz"):
+            with self.subTest(path=path):
+                self.assertRedirects(
+                    self.client.get(path), f"/signin/?next={path}", fetch_redirect_response=False
+                )
+
+    def test_ac4_static_files_need_no_sign_in(self):
+        # A file that doesn't exist gets "not found", which proves the sign-in check let
+        # the request through instead of redirecting it.
+        self.assertEqual(self.client.get("/static/no-such-file.css").status_code, 404)
+
+    def test_ac4_a_private_page_typed_without_its_trailing_slash_goes_to_sign_in(self):
+        self.assertRedirects(
+            self.client.get("/signout"), "/signin/?next=/signout", fetch_redirect_response=False
+        )
+
+    def test_ac4_a_signed_out_visitor_is_sent_to_sign_in_from_any_page(self):
+        for path in ("/", "/week/", "/no-such-page/", "/admin/"):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+
+                self.assertRedirects(
+                    response, f"/signin/?next={path}", fetch_redirect_response=False
+                )
+
+    def test_ac4_the_health_checks_and_sign_in_pages_need_no_sign_in(self):
+        for path in ("/health/", "/health/db/", "/signin/"):
+            with self.subTest(path=path):
+                self.assertEqual(self.client.get(path).status_code, 200)
+
+        # With no email in the session this page sends you back to the start itself. A
+        # "?next=" on the redirect would mean the sign-in check stepped in instead.
+        self.assertRedirects(self.client.get("/signin/code/"), "/signin/")
+
+        # With an email in the session, which is how a visitor arrives, it shows the form.
+        session = self.client.session
+        session["signin_email"] = "leader@example.com"
+        session.save()
+        self.assertEqual(self.client.get("/signin/code/").status_code, 200)
 
 
 class ResendBackendTests(SimpleTestCase):

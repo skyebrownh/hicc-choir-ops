@@ -1,12 +1,13 @@
 import logging
 
-from django.contrib.auth import login
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth import login, logout
 from django.shortcuts import redirect, render
+from django.views.decorators.http import require_POST
 
 from accounts import codes
 from accounts.forms import CodeForm, EmailForm
-from accounts.models import Account
+from accounts.models import Account, Role
+from accounts.permissions import role_required
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,27 @@ def enter_code(request):
     return render(request, "accounts/enter_code.html", {"form": form, "error": error, "email": email})
 
 
-@login_required
+@require_POST
+def sign_out(request):
+    """AC-4: end the session. POST only, so a stray link or prefetch can't sign anyone out."""
+    logout(request)
+    return redirect("request-code")
+
+
 def home(request):
-    """AC-1: placeholder landing page; #5 replaces it with the role's real home page."""
-    return render(request, "accounts/home.html")
+    """AC-4: the front door. Everyone lands on their own role's home page."""
+    if request.user.is_admin:
+        return redirect("week-ahead")
+    return redirect("attendance-home")
+
+
+@role_required(Role.ADMIN)
+def week_ahead(request):
+    """AC-4: admins' home page. A placeholder: later issues fill in the week's events."""
+    return render(request, "accounts/week_ahead.html")
+
+
+@role_required(Role.SECTION_LEADER)
+def attendance_home(request):
+    """AC-4: section leaders' home page. A placeholder: later issues add their sections' attendance."""
+    return render(request, "accounts/attendance_home.html")

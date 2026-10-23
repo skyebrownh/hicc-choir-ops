@@ -9,6 +9,15 @@
 </head>
 {# 16px text everywhere (NFR): it also stops iPhone Safari zooming into inputs. #}
 <body class="bg-gray-50 text-base text-gray-900">
+  {% if user.is_authenticated %}
+  {# AC-4: a form, not a link, because signing out changes state and so must be a POST. #}
+  <header class="mx-auto flex max-w-md justify-end px-4 pt-2">
+    <form method="post" action="{% url 'sign-out' %}">
+      {% csrf_token %}
+      <button type="submit" class="min-h-11 px-3 font-medium text-blue-800 underline">Sign out</button>
+    </form>
+  </header>
+  {% endif %}
   <main class="mx-auto max-w-md p-4">
     {% block content %}{% endblock %}
   </main>
