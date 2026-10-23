@@ -79,11 +79,19 @@ The app runs on Railway (Hobby plan), deployed from GitHub, in the existing heri
    - **Healthcheck path:** `/health/`
 4. Generate a public domain, deploy, and check the deploy log shows the health check passing. Then `/health/db/` should show `ok` and `/admin/` should load over HTTPS.
 
-After the first deploy, check the sign-in limit sees real visitor addresses. Request a code from a phone on mobile data, then in `railway run python manage.py shell` run `from accounts.models import SignInRequest; print(SignInRequest.objects.latest("created_at").ip_address)`. It should be the phone's public address, not a Railway internal one (10.x.x.x or 100.x.x.x). If not, set `NUM_PROXIES` to `2`: no code change needed.
+To run a command in production, use `railway ssh --service hicc-choir-ops -- "<command>"`, which runs inside the service. `railway run` doesn't work for this: it runs on your Mac, which can't reach the database on Railway's internal network.
+
+After the first deploy, check the sign-in limit sees real visitor addresses. Request a code from a phone on mobile data, then run this to show the three newest requests:
+
+```sh
+railway ssh --service hicc-choir-ops -- "python manage.py shell -c 'from accounts.models import SignInRequest as S; print(list(S.objects.order_by(\"-created_at\").values_list(\"ip_address\",\"created_at\")[:3]))'"
+```
+
+The newest address should be the phone's public address, not a Railway internal one (10.x.x.x or 100.x.x.x). If not, set `NUM_PROXIES` to `2`: no code change needed.
 
 ### One-time database reset (issue #4)
 
-The accounts app replaces Django's user model, which can't be swapped once migrations have run. Before the first deploy that includes it, reset the production database (this deletes its data: only the admin login exists so far), then after the deploy create the admin with `railway run python manage.py createsuperuser`.
+The accounts app replaces Django's user model, which can't be swapped once migrations have run. Before the first deploy that includes it, reset the production database (this deletes its data: only the admin login exists so far), then after the deploy create the admin with `railway ssh --service hicc-choir-ops -- "python manage.py createsuperuser"` (it asks its questions in your terminal).
 
 ## How work happens
 
