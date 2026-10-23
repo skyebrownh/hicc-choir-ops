@@ -1,7 +1,8 @@
 import logging
 
-from django.contrib.auth import login
+from django.contrib.auth import login, logout
 from django.shortcuts import redirect, render
+from django.views.decorators.http import require_POST
 
 from accounts import codes
 from accounts.forms import CodeForm, EmailForm
@@ -61,6 +62,13 @@ def enter_code(request):
             return redirect("home")
         error = CODE_MESSAGES[result]
     return render(request, "accounts/enter_code.html", {"form": form, "error": error, "email": email})
+
+
+@require_POST
+def sign_out(request):
+    """AC-4: end the session. POST only, so a stray link or prefetch can't sign anyone out."""
+    logout(request)
+    return redirect("request-code")
 
 
 def home(request):

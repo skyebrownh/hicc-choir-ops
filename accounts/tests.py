@@ -210,6 +210,30 @@ class StaySignedInTests(TestCase):
         self.client.force_login(self.admin)
         self.assertEqual(self.client.get("/attendance/").status_code, 404)
 
+    def test_ac4_signing_out_ends_the_session(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.post("/signout/")
+
+        self.assertRedirects(response, "/signin/")
+        self.assertRedirects(
+            self.client.get("/week/"), "/signin/?next=/week/", fetch_redirect_response=False
+        )
+
+    def test_ac4_signing_out_by_a_plain_link_does_nothing(self):
+        self.client.force_login(self.admin)
+
+        self.assertEqual(self.client.get("/signout/").status_code, 405)
+
+        self.assertEqual(self.client.get("/week/").status_code, 200)
+
+    def test_ac4_signed_in_pages_show_a_sign_out_button_and_sign_in_pages_do_not(self):
+        self.assertNotContains(self.client.get("/signin/"), "Sign out")
+
+        self.client.force_login(self.admin)
+
+        self.assertContains(self.client.get("/week/"), "Sign out")
+
     def test_ac4_a_signed_out_visitor_is_sent_to_sign_in_from_any_page(self):
         for path in ("/", "/week/", "/no-such-page/", "/admin/"):
             with self.subTest(path=path):
