@@ -5,6 +5,7 @@ from datetime import timedelta
 
 from django.contrib.auth.hashers import check_password, make_password
 from django.core.mail import send_mail
+from django.db import transaction
 from django.utils import timezone
 
 from accounts.models import SignInCode
@@ -42,15 +43,18 @@ def issue_code(account):
 
 def verify_code(account, code):
     """Check a code for an account. Returns OK, WRONG, EXPIRED or LOCKED."""
-    stored = SignInCode.objects.filter(account=account).order_by("-id").first()
-    # AC-2: no code, or one already used up by wrong tries, is the same as locked.
-    if stored is None or stored.attempts >= MAX_ATTEMPTS:
-        return LOCKED
-    if stored.expires_at <= timezone.now():
-        return EXPIRED
-    if check_password(code, stored.code):
-        stored.delete()  # AC-2: works once
-        return OK
-    stored.attempts += 1
-    stored.save(update_fields=["attempts"])
-    return LOCKED if stored.attempts >= MAX_ATTEMPTS else WRONG
+    # The row is locked for the whole check, so parallel guesses take turns and the
+    # 5-try limit (AC-2) can't be beaten by sending them all at once.
+    with transaction.atomic():
+        stored = SignInCode.objects.select_for_update().filter(account=account).order_by("-id").first()
+        # AC-2: no code, or one already used up by wrong tries, is the same as locked.
+        if stored is None or stored.attempts >= MAX_ATTEMPTS:
+            return LOCKED
+        if stored.expires_at <= timezone.now():
+            return EXPIRED
+        if check_password(code, stored.code):
+            stored.delete()  # AC-2: works once
+            return OK
+        stored.attempts += 1
+        stored.save(update_fields=["attempts"])
+        return LOCKED if stored.attempts >= MAX_ATTEMPTS else WRONG
