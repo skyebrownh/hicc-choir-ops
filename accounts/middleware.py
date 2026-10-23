@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.contrib.auth.views import redirect_to_login
 
-# Pages a signed-out visitor may open: the health checks Railway calls, the sign-in
+# AC-4: pages a signed-out visitor may open: the health checks Railway calls, the sign-in
 # pages themselves, and the admin's login URL (which redirects to ours).
 # Prefixes, so "/static/" covers every file under it.
 PUBLIC_PREFIXES = (
@@ -23,7 +23,7 @@ class LoginRequiredMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        # Judge "/health" as "/health/": the slash is added later by CommonMiddleware, but
+        # AC-4: judge "/health" as "/health/": the slash is added later by CommonMiddleware, but
         # only for a request that gets through to a 404, so a visitor typing the address
         # without it would otherwise be sent to sign-in.
         path = request.path if request.path.endswith("/") else request.path + "/"
