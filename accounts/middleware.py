@@ -23,6 +23,10 @@ class LoginRequiredMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if not request.user.is_authenticated and not request.path.startswith(PUBLIC_PREFIXES):
+        # Judge "/health" as "/health/": the slash is added later by CommonMiddleware, but
+        # only for a request that gets through to a 404, so a visitor typing the address
+        # without it would otherwise be sent to sign-in.
+        path = request.path if request.path.endswith("/") else request.path + "/"
+        if not request.user.is_authenticated and not path.startswith(PUBLIC_PREFIXES):
             return redirect_to_login(request.get_full_path(), settings.LOGIN_URL)
         return self.get_response(request)

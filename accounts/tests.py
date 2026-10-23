@@ -233,6 +233,22 @@ class StaySignedInTests(TestCase):
 
         self.assertContains(self.client.get("/week/"), "Sign out")
 
+    def test_ac4_a_public_page_typed_without_its_trailing_slash_still_reaches_it(self):
+        # Django adds the missing slash for us, but only if the sign-in check lets the
+        # request through to find that out.
+        for path in ("/health", "/health/db", "/signin", "/signin/code"):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+
+                self.assertRedirects(
+                    response, f"{path}/", status_code=301, fetch_redirect_response=False
+                )
+
+    def test_ac4_a_private_page_typed_without_its_trailing_slash_goes_to_sign_in(self):
+        self.assertRedirects(
+            self.client.get("/signout"), "/signin/?next=/signout", fetch_redirect_response=False
+        )
+
     def test_ac4_a_signed_out_visitor_is_sent_to_sign_in_from_any_page(self):
         for path in ("/", "/week/", "/no-such-page/", "/admin/"):
             with self.subTest(path=path):
