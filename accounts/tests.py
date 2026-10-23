@@ -9,6 +9,7 @@ from unittest import mock
 from django.contrib.auth.hashers import identify_hasher
 from django.core import mail
 from django.core.management import call_command
+from django.db import IntegrityError, transaction
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
@@ -65,6 +66,10 @@ class SignInTests(TestCase):
         if first != second:  # one chance in a million they match
             self.assertContains(self.enter_code(first), "isn&#x27;t right")
         self.assertRedirects(self.enter_code(second), "/")
+
+    def test_ac1_two_accounts_cannot_differ_only_by_email_case(self):
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Account.objects.create_user("Leader@Example.com")
 
     def test_ac1_the_code_page_without_an_email_goes_back_to_the_start(self):
         self.assertRedirects(self.client.get("/signin/code/"), "/signin/")

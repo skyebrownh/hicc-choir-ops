@@ -1,6 +1,7 @@
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
+from django.db.models.functions import Lower
 
 
 class Section(models.TextChoices):
@@ -42,6 +43,13 @@ class Account(AbstractBaseUser):
 
     USERNAME_FIELD = "email"
     objects = AccountManager()
+
+    class Meta:
+        constraints = [
+            # Sign-in matches emails ignoring case, so two spellings of one address
+            # would make the lookup ambiguous.
+            models.UniqueConstraint(Lower("email"), name="account_email_unique_ignoring_case"),
+        ]
 
     def __str__(self):
         return self.email
