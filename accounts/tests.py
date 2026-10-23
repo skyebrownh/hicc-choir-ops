@@ -244,6 +244,18 @@ class StaySignedInTests(TestCase):
                     response, f"{path}/", status_code=301, fetch_redirect_response=False
                 )
 
+    def test_ac4_a_path_that_only_starts_like_a_public_one_is_still_private(self):
+        for path in ("/healthz/", "/signinx/", "/healthz"):
+            with self.subTest(path=path):
+                self.assertRedirects(
+                    self.client.get(path), f"/signin/?next={path}", fetch_redirect_response=False
+                )
+
+    def test_ac4_static_files_need_no_sign_in(self):
+        # A file that doesn't exist gets "not found", which proves the sign-in check let
+        # the request through instead of redirecting it.
+        self.assertEqual(self.client.get("/static/no-such-file.css").status_code, 404)
+
     def test_ac4_a_private_page_typed_without_its_trailing_slash_goes_to_sign_in(self):
         self.assertRedirects(
             self.client.get("/signout"), "/signin/?next=/signout", fetch_redirect_response=False
