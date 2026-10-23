@@ -80,11 +80,11 @@ def home(request):
 
 @role_required(Role.ADMIN)
 def week_ahead(request):
-    """Admins' home page. A placeholder: later issues fill in the week's events."""
+    """AC-4: admins' home page. A placeholder: later issues fill in the week's events."""
     return render(request, "accounts/week_ahead.html")
 
 
 @role_required(Role.SECTION_LEADER)
 def attendance_home(request):
-    """Section leaders' home page. A placeholder: later issues add their sections' attendance."""
+    """AC-4: section leaders' home page. A placeholder: later issues add their sections' attendance."""
     return render(request, "accounts/attendance_home.html")
