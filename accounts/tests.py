@@ -155,6 +155,16 @@ class SignInTests(TestCase):
         self.client.force_login(self.account)
         self.assertEqual(self.client.get("/admin/accounts/account/").status_code, 302)
 
+    def test_ac1_createsuperuser_asks_only_for_an_email_never_a_password(self):
+        with mock.patch("builtins.input", return_value="asked@example.com"), mock.patch(
+            "getpass.getpass", side_effect=AssertionError("asked for a password")
+        ):
+            call_command("createsuperuser", verbosity=0)
+
+        asked = Account.objects.get(email="asked@example.com")
+        self.assertEqual(asked.role, Role.ADMIN)
+        self.assertFalse(asked.has_usable_password())
+
     def test_ac1_createsuperuser_makes_an_admin_with_no_usable_password(self):
         call_command(
             "createsuperuser", interactive=False, email="owner@example.com", verbosity=0

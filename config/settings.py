@@ -24,6 +24,8 @@ ALLOWED_HOSTS = allowed_hosts(DEBUG, env_list("ALLOWED_HOSTS"))
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
 
 INSTALLED_APPS = [
+    # Listed first so its `createsuperuser` (email only, no password) beats Django's.
+    "accounts",
     # Unfold must come before django.contrib.admin so its templates override the admin's.
     "unfold",
     "django.contrib.admin",
@@ -33,7 +35,6 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.postgres",  # Django's checks require it for ArrayField
-    "accounts",
 ]
 
 MIDDLEWARE = [
