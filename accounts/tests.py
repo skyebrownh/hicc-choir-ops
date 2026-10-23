@@ -385,3 +385,58 @@ class RateLimitTests(TestCase):
         self.assertContains(response, "Too many requests. Please try again later.", status_code=429)
         self.assertEqual(len(mail.outbox), sent_before)
         self.assertEqual(SignInCode.objects.count(), 1)  # the 5th request's code only
+
+    def test_ac7_spellings_of_one_email_share_one_limit(self):
+        for email in ["leader@example.com", "Leader@Example.com", "LEADER@example.com", "leader@EXAMPLE.com", "Leader@example.com"]:
+            self.assertRedirects(self.request_code(email), "/signin/code/")
+
+        self.assertContains(self.request_code("LEADER@Example.com"), "Too many requests", status_code=429)
+
+    def test_ac7_requests_for_unknown_emails_count_too(self):
+        for _ in range(5):
+            self.assertContains(self.request_code("nobody@example.com"), "no account for that email")
+
+        response = self.request_code("nobody@example.com")
+
+        self.assertContains(response, "Too many requests. Please try again later.", status_code=429)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_ac7_unknown_email_requests_count_toward_the_ip_limit(self):
+        for number in range(20):
+            self.request_code(f"guess{number}@example.com")
+
+        self.assertContains(self.request_code("another@example.com"), "Too many requests", status_code=429)
+
+    def test_ac7_one_ip_can_make_20_requests_across_emails_and_the_21st_is_refused(self):
+        for number in range(20):
+            self.assertContains(self.request_code(f"guess{number}@example.com"), "no account for that email")
+
+        response = self.request_code("guess20@example.com")
+
+        self.assertContains(response, "Too many requests. Please try again later.", status_code=429)
+
+    def test_ac7_the_ip_limit_also_stops_a_real_account(self):
+        for number in range(20):
+            self.request_code(f"guess{number}@example.com")
+
+        response = self.request_code("leader@example.com")
+
+        self.assertContains(response, "Too many requests", status_code=429)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_ac7_different_ips_have_separate_limits(self):
+        for _ in range(5):
+            self.request_code("nobody@example.com", REMOTE_ADDR="10.0.0.1")
+
+        self.assertContains(self.request_code("nobody@example.com", REMOTE_ADDR="10.0.0.1"), "Too many requests", status_code=429)
+        # Another IP asking for the same email is held back by the email limit, not the IP's.
+        self.assertContains(self.request_code("nobody@example.com", REMOTE_ADDR="10.0.0.2"), "Too many requests", status_code=429)
+        # ...but a different email from that other IP is fine.
+        self.assertContains(self.request_code("other@example.com", REMOTE_ADDR="10.0.0.2"), "no account for that email")
+
+    def test_ac7_different_emails_have_separate_limits(self):
+        Account.objects.create_user("second@example.com", sections=["bass"])
+        for _ in range(5):
+            self.request_code("leader@example.com")
+
+        self.assertRedirects(self.request_code("second@example.com"), "/signin/code/")
