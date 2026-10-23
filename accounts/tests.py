@@ -190,7 +190,6 @@ class StaySignedInTests(TestCase):
 
         self.assertEqual(int(response.cookies["sessionid"]["max-age"]), 90 * 24 * 60 * 60)
 
-
     def test_ac4_the_front_door_sends_an_admin_to_the_week_ahead_page(self):
         self.client.force_login(self.admin)
 
@@ -251,6 +250,12 @@ class StaySignedInTests(TestCase):
         # With no email in the session this page sends you back to the start itself. A
         # "?next=" on the redirect would mean the sign-in check stepped in instead.
         self.assertRedirects(self.client.get("/signin/code/"), "/signin/")
+
+        # With an email in the session, which is how a visitor arrives, it shows the form.
+        session = self.client.session
+        session["signin_email"] = "leader@example.com"
+        session.save()
+        self.assertEqual(self.client.get("/signin/code/").status_code, 200)
 
 
 class ResendBackendTests(SimpleTestCase):
