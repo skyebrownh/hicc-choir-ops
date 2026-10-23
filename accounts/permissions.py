@@ -4,7 +4,7 @@ from django.http import Http404
 
 
 def role_required(*roles):
-    """Show a page only to accounts with one of `roles`; everyone else gets "not found".
+    """AC-4: show a page only to accounts with one of `roles`; everyone else gets "not found".
 
     "Not found", not "forbidden", so a section leader typing a URL they may not see
     can't tell whether the page exists (SPEC.md, Business rules). Sign-in itself is
