@@ -415,6 +415,14 @@ class RateLimitTests(TestCase):
 
         self.assertContains(response, "Too many requests. Please try again later.", status_code=429)
 
+    def test_ac7_an_ip_that_used_up_its_20_does_not_hold_back_another_ip(self):
+        for number in range(20):
+            self.request_code(f"guess{number}@example.com", REMOTE_ADDR="10.0.0.1")
+        self.assertContains(self.request_code("guess20@example.com", REMOTE_ADDR="10.0.0.1"), "Too many requests", status_code=429)
+
+        # A different address has its own count of 20.
+        self.assertContains(self.request_code("guess20@example.com", REMOTE_ADDR="10.0.0.2"), "no account for that email")
+
     def test_ac7_the_ip_limit_also_stops_a_real_account(self):
         for number in range(20):
             self.request_code(f"guess{number}@example.com")
