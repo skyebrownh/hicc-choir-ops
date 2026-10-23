@@ -93,6 +93,71 @@ The first address in the list is the newest, and it should be the phone's public
 
 The accounts app replaces Django's user model, which can't be swapped once migrations have run. Before the first deploy that includes it, reset the production database (this deletes its data: only the admin login exists so far), then after the deploy create the admin with `railway ssh --service hicc-choir-ops -- "python manage.py createsuperuser"` (it asks its questions in your terminal).
 
+## Backups
+
+Railway's Hobby plan has no database backups, so Skye's Mac makes them (#19). Every day, a scheduled job runs `pg_dump` inside production's Postgres service (`Postgres-KuxJ`) through the Railway CLI and saves a compressed copy in `~/Backups/hicc-choir-ops/`, keeping the newest 30. No database password is stored anywhere; it uses the Railway CLI's own login.
+
+The backups hold real member names and emails, so they stay on the Mac (in a folder only Skye's account can open) and are never committed. Railway-side or off-Mac copies are not set up.
+
+### Setting it up
+
+Prerequisites: the [Railway CLI](https://docs.railway.com/guides/cli), logged in (`railway login`) and linked to this project (`railway link`).
+
+```sh
+bash backup/install.sh
+```
+
+This copies `backup/backup.sh` into the backup folder and installs a `launchd` job (macOS's scheduler) that checks at 10am every day and at login. It only makes a backup when none exists yet for today's date (US Eastern), so a day missed while the Mac was off is caught up when it is next on. Rerun the installer after changing `backup/backup.sh`. To stop the job (backups are kept): `bash backup/install.sh --uninstall`.
+
+### Day to day
+
+| Task | Command |
+| --- | --- |
+| See how backups are doing | `~/Backups/hicc-choir-ops/backup.sh status` |
+| Back up right now | `~/Backups/hicc-choir-ops/backup.sh now` |
+| Back up only if today has none | `~/Backups/hicc-choir-ops/backup.sh run` |
+
+- **A banner, "HICC backup saved"**, once a day means it worked.
+- **An alert, "HICC backup failed"**, stays on screen until dismissed. It says what went wrong and how old the newest good backup is. The most common cause is an expired Railway login: run `railway login`, then `backup.sh now`. Railway's own messages from the latest attempt are in `last-run-output.log` in the backup folder.
+- `backup.log` has one line per attempt (file names and sizes only, never data); "Checked … nothing to do" lines show the job is running.
+- macOS shows the notifications as coming from "Script Editor". If they don't appear, allow Script Editor in System Settings → Notifications.
+- To test the failure alert without touching anything: `RAILWAY_PROJECT_ID=00000000-0000-0000-0000-000000000000 ~/Backups/hicc-choir-ops/backup.sh now`
+
+### Practice restore
+
+Do this now and then to make sure the backups really work. It restores into a throwaway database on your everyday local Postgres, never production.
+
+```sh
+# Make an empty database
+createdb hicc_restore_test
+
+# Load the newest backup (ON_ERROR_STOP stops at the first error instead of carrying on)
+F=$(ls ~/Backups/hicc-choir-ops/hicc-*.sql.gz | sort | tail -1)
+gunzip -c "$F" | psql -d hicc_restore_test -v ON_ERROR_STOP=1 -q -o /dev/null
+
+# Count accounts in the copy, then in production (read-only); they should match
+psql -d hicc_restore_test -At -c "select count(*) from accounts_account"
+railway ssh --service Postgres-KuxJ --environment production -- psql -At -c "select count(*) from accounts_account"
+
+# Clean up
+dropdb hicc_restore_test
+```
+
+The table name is Django's `<app>_<model>`; if the count query says the table doesn't exist, run `psql -d hicc_restore_test -c '\dt'` to list the tables. Counts can differ slightly if something changed since the backup was made.
+
+Last tested: not yet tested. After the first practice restore, put the date and what matched here.
+
+### Emergency restore into Railway
+
+Only if production's data is lost or damaged, and only after talking it through first. The outline: make a fresh backup of what's there now with `backup.sh now`, empty or replace production's database, then load the chosen backup with Railway's own `psql`:
+
+```sh
+gunzip -c ~/Backups/hicc-choir-ops/hicc-YYYY-MM-DD-HHMM.sql.gz \
+  | railway ssh --service Postgres-KuxJ --environment production -- psql -v ON_ERROR_STOP=1
+```
+
+Then check `/health/db/` shows `ok` and sign in to confirm the data looks right.
+
 ## How work happens
 
 Every change starts from a GitHub issue; [CLAUDE.md](CLAUDE.md) has the project's conventions.
