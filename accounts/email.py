@@ -1,4 +1,4 @@
-"""Email backend that sends through Resend's HTTPS API, using only the standard library."""
+"""AC-1: sends the sign-in code through Resend's HTTPS API, using only the standard library."""
 
 import json
 import urllib.error

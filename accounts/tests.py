@@ -165,7 +165,7 @@ class ResendBackendTests(SimpleTestCase):
         return mail.EmailMessage("Subject", "Body 123456", "HICC <signin@mail.example.com>", ["a@example.com"])
 
     @override_settings(RESEND_API_KEY="test-key")
-    def test_it_posts_the_message_to_resend_with_the_right_headers_and_timeout(self):
+    def test_ac1_it_posts_the_message_to_resend_with_the_right_headers_and_timeout(self):
         with mock.patch("accounts.email.urllib.request.urlopen") as urlopen:
             sent = resend.ResendEmailBackend().send_messages([self.message()])
 
@@ -188,14 +188,14 @@ class ResendBackendTests(SimpleTestCase):
         )
 
     @override_settings(RESEND_API_KEY="test-key")
-    def test_it_raises_when_resend_answers_with_an_error(self):
+    def test_ac1_it_raises_when_resend_answers_with_an_error(self):
         error = urllib.error.HTTPError("https://api.resend.com/emails", 403, "Forbidden", {}, io.BytesIO())
         with mock.patch("accounts.email.urllib.request.urlopen", side_effect=error):
             with self.assertRaises(urllib.error.HTTPError):
                 resend.ResendEmailBackend().send_messages([self.message()])
 
     @override_settings(RESEND_API_KEY="")
-    def test_it_raises_when_there_is_no_api_key(self):
+    def test_ac1_it_raises_when_there_is_no_api_key(self):
         with mock.patch("accounts.email.urllib.request.urlopen") as urlopen:
             with self.assertRaises(RuntimeError):
                 resend.ResendEmailBackend().send_messages([self.message()])
@@ -225,15 +225,15 @@ class EmailBackendChoiceTests(SimpleTestCase):
 
         importlib.reload(settings)
 
-    def test_debug_without_a_key_prints_codes_to_the_console(self):
+    def test_ac1_debug_without_a_key_prints_codes_to_the_console(self):
         self.assertEqual(
             self.backend_for(DEBUG="true"), "django.core.mail.backends.console.EmailBackend"
         )
 
-    def test_debug_with_a_key_uses_resend(self):
+    def test_ac1_debug_with_a_key_uses_resend(self):
         self.assertEqual(
             self.backend_for(DEBUG="true", RESEND_API_KEY="k"), "accounts.email.ResendEmailBackend"
         )
 
-    def test_production_without_a_key_still_uses_resend_so_sending_fails_loudly(self):
+    def test_ac1_production_without_a_key_still_uses_resend_so_sending_fails_loudly(self):
         self.assertEqual(self.backend_for(DEBUG="false"), "accounts.email.ResendEmailBackend")

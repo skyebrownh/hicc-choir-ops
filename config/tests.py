@@ -58,7 +58,7 @@ class AdminTests(TestCase):
 
         self.assertRedirects(response, "/signin/")
 
-    def test_admin_renders_with_unfold_styling_for_a_signed_in_admin(self):
+    def test_ac1_admin_renders_with_unfold_styling_for_a_signed_in_admin(self):
         admin = Account.objects.create_superuser("admin@example.com")
         self.client.force_login(admin)
 

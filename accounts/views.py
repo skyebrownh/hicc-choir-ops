@@ -65,5 +65,5 @@ def enter_code(request):
 
 @login_required
 def home(request):
-    """Placeholder landing page; #5 replaces it with the role's real home page."""
+    """AC-1: placeholder landing page; #5 replaces it with the role's real home page."""
     return render(request, "accounts/home.html")
