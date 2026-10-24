@@ -1,9 +1,17 @@
 """Members: adding, editing and viewing. Everything goes through the test client, signed in as a role."""
 
+from datetime import date, timedelta
+
 from django.test import TestCase
+from django.utils import timezone
 
 from accounts.models import Account
-from roster.models import Member
+from roster.models import Member, StatusChange
+
+
+def today():
+    # Same clock the app uses (US Eastern), so tests agree with it near midnight UTC.
+    return timezone.localdate()
 
 
 class MemberTests(TestCase):
@@ -190,3 +198,90 @@ class MemberAdminTests(TestCase):
         response = self.client.get("/admin/roster/member/")
 
         self.assertContains(response, "Grace Hopper")
+
+
+class StatusHistoryTests(TestCase):
+    def setUp(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+        self.member = Member.objects.create(name="Ada", section="bass")
+
+    def test_ro2_detail_shows_the_current_status_and_history_newest_first(self):
+        StatusChange.objects.create(member=self.member, status="active", effective_on=date(2026, 1, 5))
+        StatusChange.objects.create(member=self.member, status="on_break", effective_on=date(2026, 6, 1))
+
+        response = self.client.get(f"/members/{self.member.pk}/")
+
+        self.assertEqual(self.member.current_status, "on_break")
+        self.assertContains(response, "Status history")
+        self.assertContains(response, "On Break")
+        content = response.content.decode()
+        self.assertLess(content.index("Jun 1, 2026"), content.index("Jan 5, 2026"))
+
+    def test_ro2_current_status_is_the_latest_by_date_not_the_last_entered(self):
+        StatusChange.objects.create(member=self.member, status="on_break", effective_on=date(2026, 6, 1))
+        StatusChange.objects.create(member=self.member, status="active", effective_on=date(2026, 1, 5))
+
+        self.assertEqual(self.member.current_status, "on_break")
+
+    def test_ro2_two_changes_on_one_date_are_kept_and_the_last_entered_is_current(self):
+        StatusChange.objects.create(member=self.member, status="active", effective_on=date(2026, 6, 1))
+        StatusChange.objects.create(member=self.member, status="inactive", effective_on=date(2026, 6, 1))
+
+        self.assertEqual(self.member.current_status, "inactive")
+        self.assertEqual(self.member.status_changes.count(), 2)
+
+
+class ChangeStatusTests(TestCase):
+    def setUp(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+        self.member = Member.objects.create(name="Ada", section="bass")
+        StatusChange.objects.create(member=self.member, status="active", effective_on=date(2026, 1, 5))
+        self.url = f"/members/{self.member.pk}/status/"
+
+    def test_ro2_admin_changes_status_with_todays_date_and_the_detail_page_shows_it(self):
+        response = self.client.post(self.url, {"status": "on_break", "effective_on": today().isoformat()})
+
+        self.assertRedirects(response, f"/members/{self.member.pk}/")
+        self.assertEqual(self.member.current_status, "on_break")
+        self.assertContains(self.client.get(f"/members/{self.member.pk}/"), "On Break")
+
+    def test_ro2_the_form_starts_on_todays_date(self):
+        response = self.client.get(self.url)
+
+        self.assertContains(response, f'value="{today().isoformat()}"')
+
+    def test_ro2_a_value_other_than_the_three_statuses_is_rejected(self):
+        response = self.client.post(self.url, {"status": "retired", "effective_on": today().isoformat()})
+
+        self.assertContains(response, "Select a valid choice")
+        self.assertEqual(self.member.status_changes.count(), 1)
+
+    def test_ro2_admin_can_pick_a_past_date_and_history_stays_newest_date_first(self):
+        self.client.post(self.url, {"status": "inactive", "effective_on": "2026-03-01"})
+        self.client.post(self.url, {"status": "on_break", "effective_on": "2026-02-01"})
+
+        dates = [c.effective_on for c in self.member.status_history()]
+        self.assertEqual(dates, [date(2026, 3, 1), date(2026, 2, 1), date(2026, 1, 5)])
+        # Entering an older change later leaves the current status alone.
+        self.assertEqual(self.member.current_status, "inactive")
+
+    def test_ro2_two_changes_on_the_same_date_are_both_saved(self):
+        self.client.post(self.url, {"status": "on_break", "effective_on": "2026-03-01"})
+        self.client.post(self.url, {"status": "active", "effective_on": "2026-03-01"})
+
+        self.assertEqual(self.member.status_changes.filter(effective_on=date(2026, 3, 1)).count(), 2)
+        self.assertEqual(self.member.current_status, "active")
+
+    def test_ro2_a_future_date_is_rejected_with_a_clear_message(self):
+        tomorrow = today() + timedelta(days=1)
+
+        response = self.client.post(self.url, {"status": "on_break", "effective_on": tomorrow.isoformat()})
+
+        self.assertContains(response, "be in the future")
+        self.assertEqual(self.member.status_changes.count(), 1)
+
+    def test_ro2_a_missing_date_is_rejected(self):
+        response = self.client.post(self.url, {"status": "on_break", "effective_on": ""})
+
+        self.assertContains(response, "This field is required")
+        self.assertEqual(self.member.status_changes.count(), 1)
