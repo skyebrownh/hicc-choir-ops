@@ -7,14 +7,23 @@
   <div class="mt-3 flex flex-wrap gap-2">
     <span class="badge">{{ member.get_section_display }}</span>
     {% if member.praise_team %}<span class="badge-accent">Praise Team</span>{% endif %}
+    {# RO-2: the first history row is the current status; reusing it saves two queries. #}
+    {% if history %}<span class="badge">{{ history.0.get_status_display }}</span>{% endif %}
   </div>
   <dl class="mt-6 space-y-4">
     <div><dt class="font-medium text-gray-900">Phone</dt><dd class="muted">{{ member.phone|default:"—" }}</dd></div>
     <div><dt class="font-medium text-gray-900">Email</dt><dd class="muted">{{ member.email|default:"—" }}</dd></div>
     <div><dt class="font-medium text-gray-900">Notes</dt><dd class="muted whitespace-pre-line">{{ member.notes|default:"—" }}</dd></div>
   </dl>
+  {# RO-2: the last change in a sentence. history.0 is the current status, history.1 the one before it. #}
+  <p class="mt-8 text-gray-900">
+    {% if history %}<strong>{{ history.0.get_status_display }}</strong> since {{ history.0.effective_on|date:"M j, Y" }}.{% if history.1 %} Before that: {{ history.1.get_status_display }}.{% endif %}
+    {% else %}No status yet.{% endif %}
+  </p>
+  <a href="{% url 'member-status-history' member.pk %}" class="link">See full history</a>
   {% if user.is_admin %}
-  <a href="{% url 'member-edit' member.pk %}" class="btn-primary mt-6">Edit</a>
+  <a href="{% url 'member-status' member.pk %}" class="btn-secondary mt-6">Change status</a>
+  <a href="{% url 'member-edit' member.pk %}" class="btn-primary mt-3">Edit</a>
   {% endif %}
 </div>
 {% endblock %}

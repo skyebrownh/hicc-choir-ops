@@ -4,14 +4,16 @@ Everything goes through Django's test client, like a visitor or Railway would.
 """
 
 import tempfile
+from datetime import timedelta
 from unittest import mock
 
 from django.core.management import CommandError, call_command
 from django.db import OperationalError
+from django.utils import timezone
 from django.test import SimpleTestCase, TestCase, override_settings
 
 from accounts.models import Account, Role
-from roster.models import Member
+from roster.models import Member, StatusChange
 from config.env import allowed_hosts
 
 
@@ -102,6 +104,27 @@ class SeedTests(TestCase):
         self.assertTrue(Member.objects.filter(praise_team=False).exists())
         leaders = Account.objects.filter(role=Role.SECTION_LEADER)
         self.assertEqual(sorted(leader.sections for leader in leaders), [["alto"], ["tenor", "bass"]])
+
+    def test_seed_basic_gives_every_member_a_status_and_one_a_break_history(self):
+        call_command("seed", "basic", verbosity=0)
+
+        self.assertTrue(all(member.current_status == "active" for member in Member.objects.all()))
+        returning = Member.objects.get(name="Amy Walker")
+        self.assertEqual(
+            [change.status for change in returning.status_history()], ["active", "on_break", "active"]
+        )
+
+    def test_seed_basic_dates_statuses_from_today_not_a_year_ago(self):
+        call_command("seed", "basic", verbosity=0)
+
+        today = timezone.localdate()
+        others = Member.objects.exclude(name="Amy Walker")
+        for member in others:
+            self.assertEqual([c.effective_on for c in member.status_history()], [today], member.name)
+        # Amy's history is recent (this season), and never in the future.
+        amy_dates = [c.effective_on for c in Member.objects.get(name="Amy Walker").status_history()]
+        self.assertEqual(amy_dates[0], today)
+        self.assertTrue(all(today - timedelta(days=120) <= d <= today for d in amy_dates))
 
     def test_seed_keeps_admin_accounts_and_removes_other_accounts_and_members(self):
         Account.objects.create_superuser("admin@example.com")
