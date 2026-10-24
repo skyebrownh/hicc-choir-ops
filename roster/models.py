@@ -51,7 +51,8 @@ class Member(models.Model):
 
     @property
     def current_status_display(self):
-        return Status(self.current_status).label if self.current_status else ""
+        latest = self.status_history().first()
+        return latest.get_status_display() if latest else ""
 
 
 class StatusChange(models.Model):

@@ -2,7 +2,9 @@
 
 from datetime import date, timedelta
 
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from accounts.models import Account
@@ -381,3 +383,17 @@ class StatusAdminTests(TestCase):
 
         self.assertContains(response, "2026-06-01")
         self.assertContains(response, 'value="on_break" selected')
+
+
+class DetailQueryTests(TestCase):
+    def test_ro2_the_detail_page_reads_the_status_history_once(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+        member = Member.objects.create(name="Ada", section="bass")
+        for day in (1, 2, 3):
+            StatusChange.objects.create(member=member, status="active", effective_on=date(2026, 1, day))
+
+        with CaptureQueriesContext(connection) as queries:
+            self.client.get(f"/members/{member.pk}/")
+
+        status_queries = [q for q in queries if "roster_statuschange" in q["sql"]]
+        self.assertEqual(len(status_queries), 1)

@@ -7,7 +7,8 @@
   <div class="mt-3 flex flex-wrap gap-2">
     <span class="badge">{{ member.get_section_display }}</span>
     {% if member.praise_team %}<span class="badge-accent">Praise Team</span>{% endif %}
-    {% if member.current_status %}<span class="badge">{{ member.current_status_display }}</span>{% endif %}
+    {# RO-2: the first history row is the current status; reusing it saves two queries. #}
+    {% if history %}<span class="badge">{{ history.0.get_status_display }}</span>{% endif %}
   </div>
   <dl class="mt-6 space-y-4">
     <div><dt class="font-medium text-gray-900">Phone</dt><dd class="muted">{{ member.phone|default:"—" }}</dd></div>
