@@ -81,13 +81,13 @@ class Member(models.Model):
         latest = self.status_history().first()
         return latest.get_status_display() if latest else ""
 
-    def start_history(self, *, section, praise_team=False, status=Status.ACTIVE, on=None):
-        """RO-2, RO-6: a new member's first status, section and Praise Team rows, dated `on` (default today).
+    def start_history(self, *, section, praise_team=False, status=Status.ACTIVE):
+        """RO-2, RO-6: a new member's first status, section and Praise Team rows, dated today.
 
         Every member gets all three so their history is complete. Call it inside the transaction
         that saves the member, so a failure never leaves a member without them.
         """
-        on = on or timezone.localdate()
+        on = timezone.localdate()
         StatusChange.objects.create(member=self, status=status, effective_on=on)
         SectionChange.objects.create(member=self, section=section, effective_on=on)
         PraiseTeamChange.objects.create(member=self, praise_team=praise_team, effective_on=on)
