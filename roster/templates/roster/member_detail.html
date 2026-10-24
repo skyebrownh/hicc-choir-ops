@@ -15,6 +15,7 @@
     <div><dt class="font-medium text-gray-900">Email</dt><dd class="muted">{{ member.email|default:"—" }}</dd></div>
     <div><dt class="font-medium text-gray-900">Notes</dt><dd class="muted whitespace-pre-line">{{ member.notes|default:"—" }}</dd></div>
   </dl>
+  {# RO-2: every status change with its date, newest first. #}
   <h2 class="mt-8 font-semibold text-gray-900">Status history</h2>
   <ul class="mt-2 divide-y divide-gray-200">
     {% for change in history %}

@@ -17,6 +17,7 @@ def member_list(request):
 def member_detail(request, pk):
     """RO-3: a member outside the leader's sections is "not found"."""
     member = get_object_or_404(Member.objects.visible_to(request.user), pk=pk)
+    # RO-2: the status history, newest first.
     return render(request, "roster/member_detail.html", {"member": member, "history": list(member.status_history())})
 
 

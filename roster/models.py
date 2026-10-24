@@ -51,6 +51,7 @@ class Member(models.Model):
 
     @property
     def current_status_display(self):
+        # RO-2: the label for the current status, for pages that show it.
         latest = self.status_history().first()
         return latest.get_status_display() if latest else ""
 

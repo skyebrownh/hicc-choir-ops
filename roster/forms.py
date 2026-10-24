@@ -34,6 +34,8 @@ class MemberForm(forms.ModelForm):
 
 
 class StatusChangeForm(forms.ModelForm):
+    """RO-2: record one status change with the date it took effect."""
+
     class Meta:
         model = StatusChange
         fields = ["status", "effective_on"]
