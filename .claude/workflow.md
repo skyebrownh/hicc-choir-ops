@@ -60,4 +60,4 @@ DEBUG=false uv run --env-file .env python manage.py check --deploy
 
 <!-- Optional. When /merge should suggest a release (it never creates one). Delete the section if this project doesn't do releases. -->
 
-- when a milestone has no open issues left: `v1.0.0` when M2 finishes (v1 complete); after that, a new MINOR version (`v1.1.0`) for features, or a PATCH (`v1.0.1`) for a fix-only batch
+- when a milestone has no open issues left: `v1.0.0` when v1 finishes and `v2.0.0` when v2 finishes; in between, a new MINOR version (`v1.1.0`) for features, or a PATCH (`v1.0.1`) for a fix-only batch
