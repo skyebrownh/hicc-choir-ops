@@ -136,3 +136,28 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 3600  # raise once the site is known to work over HTTPS
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+
+
+# The Unfold admin is Skye's maintenance tool (SPEC.md, Decisions, 2026-10-23). It is themed
+# to match the app's indigo, but is otherwise left as Unfold ships it. These are Tailwind's
+# indigo shades, because Unfold's own prebuilt CSS can't see new utility classes.
+UNFOLD = {
+    "SITE_TITLE": "HICC Choir Ops admin",
+    "SITE_HEADER": "HICC Choir Ops",
+    "THEME": "light",
+    "COLORS": {
+        "primary": {
+            "50": "oklch(96.2% 0.018 272.314)",
+            "100": "oklch(93% 0.034 272.788)",
+            "200": "oklch(87% 0.065 274.039)",
+            "300": "oklch(78.5% 0.115 274.713)",
+            "400": "oklch(67.3% 0.182 276.935)",
+            "500": "oklch(58.5% 0.233 277.117)",
+            "600": "oklch(51.1% 0.262 276.966)",
+            "700": "oklch(45.7% 0.24 277.023)",
+            "800": "oklch(39.8% 0.195 277.366)",
+            "900": "oklch(35.9% 0.144 278.697)",
+            "950": "oklch(25.7% 0.09 281.288)",
+        },
+    },
+}

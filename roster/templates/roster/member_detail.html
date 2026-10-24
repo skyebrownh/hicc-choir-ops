@@ -1,16 +1,20 @@
 {% extends "base.html" %}
 {% block title %}{{ member.name }} · HICC Choir Ops{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold">{{ member.name }}</h1>
-<dl class="mt-4 space-y-2">
-  <div><dt class="font-medium">Section</dt><dd>{{ member.get_section_display }}</dd></div>
-  <div><dt class="font-medium">Praise Team</dt><dd>{{ member.praise_team|yesno:"Yes,No" }}</dd></div>
-  <div><dt class="font-medium">Phone</dt><dd>{{ member.phone|default:"—" }}</dd></div>
-  <div><dt class="font-medium">Email</dt><dd>{{ member.email|default:"—" }}</dd></div>
-  <div><dt class="font-medium">Notes</dt><dd class="whitespace-pre-line">{{ member.notes|default:"—" }}</dd></div>
-</dl>
-{% if user.is_admin %}
-<a href="{% url 'member-edit' member.pk %}" class="mt-4 flex min-h-11 items-center justify-center rounded bg-blue-800 px-4 font-medium text-white">Edit</a>
-{% endif %}
-<a href="{% url 'member-list' %}" class="mt-4 flex min-h-11 items-center text-blue-800 underline">Back to members</a>
+<a href="{% url 'member-list' %}" class="link">← Members</a>
+<div class="card mt-2">
+  <h1 class="page-title">{{ member.name }}</h1>
+  <div class="mt-3 flex flex-wrap gap-2">
+    <span class="badge">{{ member.get_section_display }}</span>
+    {% if member.praise_team %}<span class="badge-accent">Praise Team</span>{% endif %}
+  </div>
+  <dl class="mt-6 space-y-4">
+    <div><dt class="font-medium text-gray-900">Phone</dt><dd class="muted">{{ member.phone|default:"—" }}</dd></div>
+    <div><dt class="font-medium text-gray-900">Email</dt><dd class="muted">{{ member.email|default:"—" }}</dd></div>
+    <div><dt class="font-medium text-gray-900">Notes</dt><dd class="muted whitespace-pre-line">{{ member.notes|default:"—" }}</dd></div>
+  </dl>
+  {% if user.is_admin %}
+  <a href="{% url 'member-edit' member.pk %}" class="btn-primary mt-6">Edit</a>
+  {% endif %}
+</div>
 {% endblock %}

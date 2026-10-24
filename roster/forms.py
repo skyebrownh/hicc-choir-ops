@@ -2,8 +2,8 @@ from django import forms
 
 from roster.models import Member
 
-# NFR: 44px-tall tap targets and 16px text on every input.
-INPUT_CLASSES = "block min-h-11 w-full rounded border border-gray-400 px-3 text-base"
+# Component classes from tailwind/input.css; `input` is 44px tall with 16px text (NFR).
+INPUT_CLASSES = "input"
 
 
 class MemberForm(forms.ModelForm):
@@ -17,7 +17,7 @@ class MemberForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         for name, field in self.fields.items():
             if name == "praise_team":
-                field.widget.attrs["class"] = "size-6"
+                field.widget.attrs["class"] = "size-6 accent-indigo-600"
             else:
                 field.widget.attrs["class"] = INPUT_CLASSES
         self.fields["phone"].widget.attrs["autocomplete"] = "off"

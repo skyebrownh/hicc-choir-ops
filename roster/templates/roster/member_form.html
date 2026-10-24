@@ -1,23 +1,15 @@
 {% extends "base.html" %}
 {% block title %}{{ title }} · HICC Choir Ops{% endblock %}
 {% block content %}
-<h1 class="mb-4 text-2xl font-bold">{{ title }}</h1>
-<form method="post" class="space-y-4">
-  {% csrf_token %}
-  {# Every input has a visible label (NFR, Accessible); 16px text and 44px height keep phones from zooming and mis-tapping. #}
-  {% for field in form %}
-  <div>
-    {% if field.field.widget.input_type == "checkbox" %}
-    <label class="flex min-h-11 items-center gap-3 font-medium">
-      {{ field }} {{ field.label }}
-    </label>
-    {% else %}
-    <label for="{{ field.id_for_label }}" class="mb-1 block font-medium">{{ field.label }}</label>
-    {{ field }}
-    {% endif %}
-    {% for error in field.errors %}<p role="alert" class="text-red-800">{{ error }}</p>{% endfor %}
+<div class="mx-auto max-w-md">
+  <div class="card">
+    <h1 class="page-title">{{ title }}</h1>
+    <form method="post" class="mt-6 space-y-6">
+      {% csrf_token %}
+      {% for field in form %}{% include "components/_field.html" %}{% endfor %}
+      <button type="submit" class="btn-primary">Save</button>
+      <a href="{% if member %}{% url 'member-detail' member.pk %}{% else %}{% url 'member-list' %}{% endif %}" class="btn-secondary">Cancel</a>
+    </form>
   </div>
-  {% endfor %}
-  <button type="submit" class="min-h-11 w-full rounded bg-blue-800 px-4 font-medium text-white">Save</button>
-</form>
+</div>
 {% endblock %}

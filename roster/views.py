@@ -36,4 +36,4 @@ def member_edit(request, pk):
     if request.method == "POST" and form.is_valid():
         form.save()
         return redirect("member-detail", pk=member.pk)
-    return render(request, "roster/member_form.html", {"form": form, "title": f"Edit {member.name}"})
+    return render(request, "roster/member_form.html", {"form": form, "member": member, "title": f"Edit {member.name}"})

@@ -8,3 +8,65 @@
 @source "../accounts";
 @source "../roster";
 @source "../songs";
+/* Classes written in Python (form widgets) are scanned too. */
+@source "../roster/forms.py";
+@source "../accounts/forms.py";
+
+/* The look mirrors heritage-media-availability: Tailwind's default gray and indigo,
+   white rounded cards on a pale gray page, 16px text everywhere. It is defined once
+   here as named components, so a page says `btn-primary` and restyling is one edit. */
+@layer components {
+  .card {
+    @apply overflow-hidden rounded-lg bg-white px-4 py-5 shadow-sm sm:p-6;
+  }
+
+  .page-title {
+    @apply text-2xl/7 font-bold text-gray-900 sm:text-3xl sm:tracking-tight;
+  }
+
+  .muted {
+    @apply text-gray-600;
+  }
+
+  /* NFR: every button and link-button is at least 44px tall (min-h-11). Tailwind v4 can't
+     @apply one component inside another, so each spells its classes out. */
+  .btn-primary {
+    @apply flex min-h-11 w-full items-center justify-center rounded-md px-3.5 py-2.5 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 bg-indigo-600 text-white shadow-xs hover:bg-indigo-500;
+  }
+  .btn-secondary {
+    @apply flex min-h-11 w-full items-center justify-center rounded-md px-3.5 py-2.5 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 bg-white text-gray-900 shadow-xs ring-1 ring-gray-300 ring-inset hover:bg-gray-50;
+  }
+
+  .link {
+    @apply inline-flex min-h-11 items-center font-medium text-indigo-600 underline hover:text-indigo-500;
+  }
+
+  .label {
+    @apply block font-medium text-gray-900;
+  }
+  .input {
+    @apply block min-h-11 w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600;
+  }
+  .field-error {
+    @apply mt-2 text-red-600;
+  }
+
+  /* Pills for short facts, such as a member's section. */
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-medium bg-gray-100 text-gray-700;
+  }
+  .badge-accent {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-medium bg-indigo-50 text-indigo-700;
+  }
+
+  .alert-error {
+    @apply rounded-md p-4 bg-red-50 text-red-800;
+  }
+  .alert-success {
+    @apply rounded-md p-4 bg-green-50 text-green-800;
+  }
+
+  .empty-state {
+    @apply rounded-lg bg-gray-50 px-4 py-5 text-gray-600;
+  }
+}
