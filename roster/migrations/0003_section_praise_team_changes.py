@@ -59,4 +59,7 @@ class Migration(migrations.Migration):
         ),
         # Nothing to undo: reversing drops the tables, and the rows with them.
         migrations.RunPython(copy_section_and_praise_team_into_changes, migrations.RunPython.noop),
+        # Last, once the values are copied: the history is now the only place they live.
+        migrations.RemoveField(model_name='member', name='section'),
+        migrations.RemoveField(model_name='member', name='praise_team'),
     ]

@@ -97,11 +97,10 @@ class SeedTests(TestCase):
         call_command("seed", "basic", verbosity=0)
 
         self.assertGreaterEqual(Member.objects.count(), 12)
-        self.assertEqual(
-            set(Member.objects.values_list("section", flat=True)), {"soprano", "alto", "tenor", "bass"}
-        )
-        self.assertTrue(Member.objects.filter(praise_team=True).exists())
-        self.assertTrue(Member.objects.filter(praise_team=False).exists())
+        members = list(Member.objects.all())
+        self.assertEqual({m.current_section for m in members}, {"soprano", "alto", "tenor", "bass"})
+        self.assertIn(True, {m.current_praise_team for m in members})
+        self.assertIn(False, {m.current_praise_team for m in members})
         leaders = Account.objects.filter(role=Role.SECTION_LEADER)
         self.assertEqual(sorted(leader.sections for leader in leaders), [["alto"], ["tenor", "bass"]])
 
@@ -126,10 +125,24 @@ class SeedTests(TestCase):
         self.assertEqual(amy_dates[0], today)
         self.assertTrue(all(today - timedelta(days=120) <= d <= today for d in amy_dates))
 
+    def test_seed_basic_gives_a_member_who_moved_section_and_one_who_joined_the_praise_team(self):
+        call_command("seed", "basic", verbosity=0)
+
+        today = timezone.localdate()
+        moved = Member.objects.get(name="Tim Hayes")
+        self.assertEqual([c.section for c in moved.section_history()], ["tenor", "alto"])
+        self.assertEqual(moved.section_on(today - timedelta(days=60)), "alto")
+        joined = Member.objects.get(name="Amy Walker")
+        self.assertEqual([c.praise_team for c in joined.praise_team_history()], [True, False])
+        # Everyone else has one dated row of each, from today.
+        for member in Member.objects.exclude(name__in=["Tim Hayes", "Amy Walker"]):
+            self.assertEqual(member.section_changes.count(), 1, member.name)
+            self.assertEqual(member.praise_team_changes.count(), 1, member.name)
+
     def test_seed_keeps_admin_accounts_and_removes_other_accounts_and_members(self):
         Account.objects.create_superuser("admin@example.com")
         Account.objects.create_user("old-leader@example.com", sections=["alto"])
-        Member.objects.create(name="Old Member", section="alto")
+        Member.objects.create(name="Old Member")
 
         call_command("seed", "basic", verbosity=0)
 
@@ -146,7 +159,7 @@ class SeedTests(TestCase):
         self.assertEqual((Member.objects.count(), Account.objects.count()), first)
 
     def test_seed_refuses_an_unknown_scenario_and_lists_the_known_ones(self):
-        Member.objects.create(name="Keep Me", section="alto")
+        Member.objects.create(name="Keep Me")
 
         with self.assertRaisesMessage(CommandError, "basic"):
             call_command("seed", "nope", verbosity=0)
@@ -156,7 +169,7 @@ class SeedTests(TestCase):
     @override_settings(DEBUG=False)
     def test_seed_refuses_to_run_with_debug_off(self):
         # Wiping data is only safe on a developer's machine, never in production.
-        Member.objects.create(name="Keep Me", section="alto")
+        Member.objects.create(name="Keep Me")
 
         with self.assertRaisesMessage(CommandError, "DEBUG"):
             call_command("seed", "basic", verbosity=0)

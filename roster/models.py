@@ -18,13 +18,19 @@ class Status(models.TextChoices):
 
 
 class MemberQuerySet(models.QuerySet):
-    def with_current_status(self):
-        """RO-2: adds `status_now` (the latest change's status) to each member in the same query.
+    def _latest(self, change_model, field):
+        # The latest change's value, with the same ordering as the Member.*_history() methods
+        # so the list and the member's page agree.
+        latest = change_model.objects.filter(member=models.OuterRef("pk")).order_by("-effective_on", "-id")
+        return models.Subquery(latest.values(field)[:1])
 
-        Same ordering as Member.status_history(), so the list and the member's page agree.
-        """
-        latest = StatusChange.objects.filter(member=models.OuterRef("pk")).order_by("-effective_on", "-id")
-        return self.annotate(status_now=models.Subquery(latest.values("status")[:1]))
+    def with_current_status(self):
+        """RO-2, RO-6: adds `status_now`, `section_now` and `praise_team_now` (each the latest change's value) in the same query."""
+        return self.annotate(
+            status_now=self._latest(StatusChange, "status"),
+            section_now=self._latest(SectionChange, "section"),
+            praise_team_now=self._latest(PraiseTeamChange, "praise_team"),
+        )
 
     def visible_to(self, account):
         """RO-3: admins see every member; a section leader sees members of their own sections.
@@ -34,20 +40,19 @@ class MemberQuerySet(models.QuerySet):
         """
         if account.is_admin:
             return self
-        return self.filter(section__in=account.sections)
+        # RO-6: by the section they are in now, so a member who moved leaves their old leader's view.
+        return self.annotate(section_now=self._latest(SectionChange, "section")).filter(section_now__in=account.sections)
 
 
 class Member(models.Model):
     """A choir member (SPEC.md, Member). Not the same as an Account: most members never sign in."""
 
-    # RO-1: name, phone, email, section, Praise Team yes/no, and notes.
+    # RO-1: name, phone, email, section, Praise Team yes/no, and notes. Section and Praise Team
+    # are not fields here: each is the latest of its dated changes (RO-6), read through
+    # `current_section` and `current_praise_team`.
     name = models.CharField(max_length=200)
     phone = models.CharField(max_length=50, blank=True)
     email = models.EmailField(blank=True)
-    # For now plain fields; the section-and-Praise-Team history issue (#10) replaces them
-    # with dated changes (RO-6).
-    section = models.CharField(max_length=10, choices=Section.choices)
-    praise_team = models.BooleanField(default=False)
     notes = models.TextField(blank=True)
 
     objects = MemberQuerySet.as_manager()
@@ -85,6 +90,12 @@ class Member(models.Model):
         # RO-6: the latest change. None only for a member with no change at all (not expected in the app).
         latest = self.section_history().first()
         return latest.section if latest else None
+
+    @property
+    def current_section_display(self):
+        # RO-6: the label for the current section, for pages that show it.
+        latest = self.section_history().first()
+        return latest.get_section_display() if latest else ""
 
     def praise_team_history(self):
         """RO-6: newest change first, same-date ties to the one entered last."""
@@ -195,5 +206,10 @@ class PraiseTeamChange(DatedChange):
     def __str__(self):
         return f"{self.member}: {self.value_label()} from {self.effective_on}"
 
+    def get_praise_team_display(self):
+        # The wording pages use for this value, in the same style as get_section_display().
+        return "On the Praise Team" if self.praise_team else "Not on the Praise Team"
+
     def value_label(self):
-        return "on the Praise Team" if self.praise_team else "not on the Praise Team"
+        # Lower-case, for inside a sentence.
+        return self.get_praise_team_display()[0].lower() + self.get_praise_team_display()[1:]
