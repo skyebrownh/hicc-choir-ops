@@ -9,7 +9,8 @@
 </div>
 {# RO-4: said out loud so nobody wonders where the Inactive members went. #}
 {% if filters.hiding_inactive %}
-<p class="empty-state mt-4">Showing Active and On Break members. Inactive members are hidden.</p>
+<p class="empty-state mt-4">Showing Active and On Break members. Inactive members are hidden.
+  <a href="{% url 'member-list' %}?{{ filters.everyone_query }}" class="link">Show everyone</a></p>
 {% endif %}
 {% if has_members %}
 {% for group in groups %}

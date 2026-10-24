@@ -1,3 +1,5 @@
+from urllib.parse import urlencode
+
 from django import forms
 from django.db.models import Q
 from django.utils import timezone
@@ -114,10 +116,23 @@ class MemberFilterForm(forms.Form):
         ("all", "Everyone"),
     ]
 
+    section = forms.ChoiceField(required=False, label="Section")
     status = forms.ChoiceField(choices=STATUS_CHOICES, required=False, label="Status")
+    praise_team = forms.ChoiceField(
+        choices=[("", "Any"), ("yes", "On the Praise Team"), ("no", "Not on the Praise Team")],
+        required=False,
+        label="Praise Team",
+    )
 
     def __init__(self, data, account):
         super().__init__(data)
+        # RO-3: offer only the sections this person can see. A leader with one section has nothing to pick,
+        # so the field goes (the list is already limited to that section by `visible_to`).
+        sections = list(Section.choices) if account.is_admin else [c for c in Section.choices if c[0] in account.sections]
+        if len(sections) > 1:
+            self.fields["section"].choices = [("", "All sections"), *sections]
+        else:
+            del self.fields["section"]
         for field in self.fields.values():
             field.widget.attrs["class"] = INPUT_CLASSES
 
@@ -131,8 +146,21 @@ class MemberFilterForm(forms.Form):
         # RO-4: true when the default status choice is in force, so the page can say Inactive members are hidden.
         return self._value("status") == ""
 
+    def everyone_query(self):
+        """RO-4: the query string for "Show everyone": the same filters, with every status."""
+        chosen = {name: self._value(name) for name in ("section", "praise_team") if self._value(name)}
+        return urlencode({**chosen, "status": "all"})
+
     def filter(self, members):
         """RO-4: narrows a queryset that already has `status_now` (see `with_current_status`)."""
+        if self._value("section"):
+            members = members.filter(section_now=self._value("section"))
+        praise_team = self._value("praise_team")
+        if praise_team == "yes":
+            members = members.filter(praise_team_now=True)
+        elif praise_team == "no":
+            # A member with no Praise Team change at all counts as not on it (see Member.current_praise_team).
+            members = members.filter(Q(praise_team_now=False) | Q(praise_team_now__isnull=True))
         status = self._value("status")
         if status == "":
             # A member with no status at all (not expected in the app) stays visible rather than vanishing:

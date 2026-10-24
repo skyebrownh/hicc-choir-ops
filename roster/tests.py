@@ -759,6 +759,104 @@ class MemberListFilterTests(TestCase):
         self.assertNotContains(response, "Ivy Inactive")
         self.assertContains(response, "Inactive members are hidden")
 
+    def test_ro4_everyone_shows_inactive_members_and_removes_the_notice(self):
+        self.add("Ada Active", "alto")
+        self.add("Ivy Inactive", "alto", "inactive")
+
+        response = self.client.get("/members/?status=all")
+
+        self.assertContains(response, "Ada Active")
+        self.assertContains(response, "Ivy Inactive")
+        self.assertNotContains(response, "Inactive members are hidden")
+
+    def test_ro4_the_notice_links_to_the_everyone_view(self):
+        self.add("Ivy Inactive", "alto", "inactive")
+
+        response = self.client.get("/members/")
+
+        self.assertContains(response, 'href="/members/?status=all"')
+
+    def test_ro4_the_notice_link_keeps_the_other_filters(self):
+        response = self.client.get("/members/?section=alto&praise_team=yes")
+
+        self.assertContains(response, 'href="/members/?section=alto&amp;praise_team=yes&amp;status=all"')
+
+    def test_ro4_each_status_shows_only_members_whose_current_status_matches(self):
+        self.add("Ada Active", "alto")
+        self.add("Ben Break", "alto", "on_break")
+        self.add("Ivy Inactive", "alto", "inactive")
+        # Was On Break, now Active again: counts as Active only.
+        back = self.add("Ned Returned", "alto", "on_break")
+        StatusChange.objects.create(member=back, status="active", effective_on=date(2026, 2, 1))
+
+        for status, shown in [
+            ("active", {"Ada Active", "Ned Returned"}),
+            ("on_break", {"Ben Break"}),
+            ("inactive", {"Ivy Inactive"}),
+        ]:
+            response = self.client.get(f"/members/?status={status}")
+            for name in ["Ada Active", "Ben Break", "Ivy Inactive", "Ned Returned"]:
+                if name in shown:
+                    self.assertContains(response, name)
+                else:
+                    self.assertNotContains(response, name)
+
+    def test_ro4_a_section_filter_shows_only_that_sections_heading_and_members(self):
+        self.add("Alice Alto", "alto")
+        self.add("Tom Tenor", "tenor")
+
+        response = self.client.get("/members/?section=alto")
+
+        self.assertContains(response, "Alice Alto")
+        self.assertContains(response, ">Alto</h2>")
+        self.assertNotContains(response, "Tom Tenor")
+        self.assertNotContains(response, ">Tenor</h2>")
+
+    def test_ro4_a_section_filter_uses_the_section_now_not_an_old_one(self):
+        moved = self.add("Mia Mover", "alto")
+        SectionChange.objects.create(member=moved, section="tenor", effective_on=date(2026, 3, 1))
+
+        self.assertNotContains(self.client.get("/members/?section=alto"), "Mia Mover")
+        self.assertContains(self.client.get("/members/?section=tenor"), "Mia Mover")
+
+    def test_ro4_praise_team_yes_and_no_use_the_current_flag(self):
+        self.add("Pat Praise", "alto", praise_team=True)
+        self.add("Nell Notteam", "alto", praise_team=False)
+        # Joined the team last month: the current flag is what counts.
+        joined = self.add("Jo Joiner", "alto", praise_team=False)
+        PraiseTeamChange.objects.create(member=joined, praise_team=True, effective_on=today() - timedelta(days=30))
+
+        yes = self.client.get("/members/?praise_team=yes")
+        no = self.client.get("/members/?praise_team=no")
+
+        self.assertContains(yes, "Pat Praise")
+        self.assertContains(yes, "Jo Joiner")
+        self.assertNotContains(yes, "Nell Notteam")
+        self.assertContains(no, "Nell Notteam")
+        self.assertNotContains(no, "Pat Praise")
+        self.assertNotContains(no, "Jo Joiner")
+
+    def test_ro4_section_status_and_praise_team_filters_combine(self):
+        self.add("Match Me", "alto", "on_break", praise_team=True)
+        self.add("Wrong Section", "tenor", "on_break", praise_team=True)
+        self.add("Wrong Status", "alto", "active", praise_team=True)
+        self.add("Wrong Team", "alto", "on_break", praise_team=False)
+
+        response = self.client.get("/members/?section=alto&status=on_break&praise_team=yes")
+
+        self.assertContains(response, "Match Me")
+        for other in ["Wrong Section", "Wrong Status", "Wrong Team"]:
+            self.assertNotContains(response, other)
+
+    def test_ro4_a_value_that_is_not_a_choice_means_no_filter(self):
+        self.add("Alice Alto", "alto")
+        self.add("Tom Tenor", "tenor")
+
+        response = self.client.get("/members/?section=choir&status=banana&praise_team=maybe")
+
+        self.assertContains(response, "Alice Alto")
+        self.assertContains(response, "Tom Tenor")
+
 
 class ChangeSectionTests(TestCase):
     """RO-6: admins record section changes, each with its date."""
