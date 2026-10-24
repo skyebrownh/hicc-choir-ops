@@ -1,12 +1,11 @@
+from datetime import timedelta
+
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
-
-from accounts.models import Account, Role
-from datetime import timedelta
-
 from django.utils import timezone
 
+from accounts.models import Account, Role
 from roster.models import Member, StatusChange
 
 # Fake names only, on example.com: this is development data and must never hold real people.
