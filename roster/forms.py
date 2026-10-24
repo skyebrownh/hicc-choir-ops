@@ -107,7 +107,7 @@ class MemberFilterForm(forms.Form):
     out-of-reach value just means "no filter" on that field instead of an error page.
     """
 
-    # "" is every field's default. Status's default hides Inactive members, because that group can grow large.
+    # RO-4: "" is every field's default. Status's default hides Inactive members, because that group can grow large.
     STATUS_CHOICES = [
         ("", "Active and On Break"),
         (Status.ACTIVE.value, "Active"),
@@ -137,7 +137,7 @@ class MemberFilterForm(forms.Form):
             field.widget.attrs["class"] = INPUT_CLASSES
 
     def _value(self, name):
-        # Invalid values are missing from cleaned_data, which reads as the default.
+        # RO-4: invalid values are missing from cleaned_data, which reads as the default.
         self.is_valid()
         return self.cleaned_data.get(name, "")
 
@@ -164,11 +164,11 @@ class MemberFilterForm(forms.Form):
         if praise_team == "yes":
             members = members.filter(praise_team_now=True)
         elif praise_team == "no":
-            # A member with no Praise Team change at all counts as not on it (see Member.current_praise_team).
+            # RO-6: a member with no Praise Team change at all counts as not on it (see Member.current_praise_team).
             members = members.filter(Q(praise_team_now=False) | Q(praise_team_now__isnull=True))
         status = self._value("status")
         if status == "":
-            # A member with no status at all (not expected in the app) stays visible rather than vanishing:
+            # RO-2: a member with no status at all (not expected in the app) stays visible rather than vanishing:
             # in SQL, NULL is never "not equal" to anything, so it needs asking for.
             return members.filter(~Q(status_now=Status.INACTIVE) | Q(status_now__isnull=True))
         if status != "all":

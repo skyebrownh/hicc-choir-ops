@@ -27,7 +27,7 @@ BASIC_MEMBERS = [
     ("Beth Rowe", "alto", False),
     ("Ian Stone", "tenor", False),
 ]
-# Everyone else is Active.
+# RO-4: everyone else is Active.
 OTHER_STATUSES = {"Beth Rowe": "on_break", "Ian Stone": "inactive"}
 
 
