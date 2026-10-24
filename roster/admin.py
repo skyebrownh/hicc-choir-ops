@@ -79,7 +79,7 @@ class MemberAdmin(ModelAdmin):
     readonly_fields = ["status_changes_link", "section_changes_link", "praise_team_changes_link"]
 
     def get_form(self, request, obj=None, **kwargs):
-        # The first section and flag are asked for on add only; later changes go through the history pages.
+        # RO-6: the first section and flag are asked for on add only; later changes go through the history pages.
         if obj is None:
             kwargs["form"] = MemberAddForm
         return super().get_form(request, obj, **kwargs)

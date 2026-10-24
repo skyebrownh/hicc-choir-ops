@@ -657,6 +657,15 @@ class SectionAndPraiseTeamLookupTests(TestCase):
         self.assertFalse(self.member.praise_team_on(date(2026, 9, 1)))
         self.assertFalse(self.member.current_praise_team)
 
+    def test_ro6_two_praise_team_changes_on_one_date_go_to_the_last_entered_and_today_counts(self):
+        PraiseTeamChange.objects.create(member=self.member, praise_team=True, effective_on=date(2026, 6, 1))
+        PraiseTeamChange.objects.create(member=self.member, praise_team=False, effective_on=date(2026, 6, 1))
+        PraiseTeamChange.objects.create(member=self.member, praise_team=True, effective_on=today())
+
+        self.assertFalse(self.member.praise_team_on(date(2026, 6, 1)))
+        self.assertTrue(self.member.praise_team_on(today()))
+        self.assertTrue(self.member.current_praise_team)
+
     def test_ro6_a_member_with_no_section_change_has_no_section(self):
         self.assertIsNone(self.member.current_section)
         self.assertIsNone(self.member.section_on(today()))

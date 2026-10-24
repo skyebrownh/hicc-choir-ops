@@ -74,7 +74,7 @@ class SectionChangeForm(DatedChangeForm):
 
 
 class PraiseTeamChangeForm(DatedChangeForm):
-    # A Yes/No choice reads better than a lone checkbox here, where unticked means "leaves the team".
+    # RO-6: a Yes/No choice reads better than a lone checkbox here, where unticked means "leaves the team".
     praise_team = forms.TypedChoiceField(
         choices=[("yes", "Yes, on the Praise Team"), ("no", "No, not on the Praise Team")],
         coerce=lambda value: value == "yes",

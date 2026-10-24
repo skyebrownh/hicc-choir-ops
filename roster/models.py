@@ -19,7 +19,7 @@ class Status(models.TextChoices):
 
 class MemberQuerySet(models.QuerySet):
     def _latest(self, change_model, field):
-        # The latest change's value, with the same ordering as the Member.*_history() methods
+        # RO-2, RO-6: the latest change's value, with the same ordering as the Member.*_history() methods
         # so the list and the member's page agree.
         latest = change_model.objects.filter(member=models.OuterRef("pk")).order_by("-effective_on", "-id")
         return models.Subquery(latest.values(field)[:1])
@@ -120,7 +120,7 @@ class DatedChange(models.Model):
     ("not in the future", "must actually change something") are written once, here.
     """
 
-    # The name of the field a subclass adds to hold its value ("status", "section", ...).
+    # RO-2, RO-6: the name of the field a subclass adds to hold its value ("status", "section", ...).
     value_field = None
 
     effective_on = models.DateField()
