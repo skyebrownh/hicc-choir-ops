@@ -22,6 +22,9 @@ class MemberForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if self.instance.pk:
             del self.fields["initial_status"]
+        if "initial_status" in self.fields:
+            # RO-2: Status sits right above Section, since they are chosen together.
+            self.order_fields(["name", "phone", "email", "initial_status", "section"])
         for name, field in self.fields.items():
             if name == "praise_team":
                 field.widget.attrs["class"] = "size-6 accent-indigo-600"

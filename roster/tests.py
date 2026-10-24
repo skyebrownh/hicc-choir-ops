@@ -389,6 +389,12 @@ class InitialStatusTests(TestCase):
         self.assertContains(response, "Status")
         self.assertContains(response, '<option value="active" selected>')
 
+    def test_ro2_status_comes_just_above_section_on_the_add_form(self):
+        content = self.client.get("/members/new/").content.decode()
+
+        order = [content.index(f'name="{name}"') for name in ["name", "phone", "email", "initial_status", "section"]]
+        self.assertEqual(order, sorted(order))
+
     def test_ro2_a_new_member_can_start_on_another_status(self):
         self.client.post("/members/new/", {"name": "Ada", "section": "bass", "initial_status": "on_break"})
 

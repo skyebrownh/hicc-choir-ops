@@ -30,6 +30,7 @@ DEBUG=false uv run --env-file .env python manage.py check --deploy
 
 <!-- What Skye does before trying a change by hand, and anything to undo afterwards. /handover starts its manual test steps from here. -->
 
+- apply database migrations first (a new migration otherwise breaks the seed and the pages): `uv run --env-file .env python manage.py migrate`
 - reset local data: `uv run --env-file .env python manage.py seed <scenario>` (the handover names the scenario; admin logins are kept)
 - start the dev server: `uv run --env-file .env python manage.py runserver`, then open http://127.0.0.1:8000/
 - for admin changes, log in at http://127.0.0.1:8000/admin/ with your local superuser

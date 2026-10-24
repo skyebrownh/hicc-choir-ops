@@ -37,13 +37,13 @@ def seed_basic():
             email=f"{slug}@example.com",
             phone="555-0100",
         )
-        # RO-2: everyone is Active. Amy Walker has a break behind her, so the history list has
+        # RO-2: everyone is Active from today, like a member added or migrated today. Amy Walker has a break behind her, so the history list has
         # something to show: Active, then On Break, then back to Active.
         if name == "Amy Walker":
-            for status, days_ago in [("active", 365), ("on_break", 120), ("active", 30)]:
+            for status, days_ago in [("active", 90), ("on_break", 60), ("active", 0)]:
                 StatusChange.objects.create(member=member, status=status, effective_on=today - timedelta(days=days_ago))
         else:
-            StatusChange.objects.create(member=member, status="active", effective_on=today - timedelta(days=365))
+            StatusChange.objects.create(member=member, status="active", effective_on=today)
     # For trying the section-leader view by hand. The sign-in code prints in the server console.
     Account.objects.create_user("alto.leader@example.com", sections=["alto"])
     Account.objects.create_user("tenor.leader@example.com", sections=["tenor", "bass"])
