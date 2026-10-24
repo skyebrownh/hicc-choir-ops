@@ -107,11 +107,18 @@ class SeedTests(TestCase):
     def test_seed_basic_gives_every_member_a_status_and_one_a_break_history(self):
         call_command("seed", "basic", verbosity=0)
 
-        self.assertTrue(all(member.current_status == "active" for member in Member.objects.all()))
+        others = Member.objects.exclude(name__in=["Beth Rowe", "Ian Stone"])
+        self.assertTrue(all(member.current_status == "active" for member in others))
         returning = Member.objects.get(name="Amy Walker")
         self.assertEqual(
             [change.status for change in returning.status_history()], ["active", "on_break", "active"]
         )
+
+    def test_seed_basic_has_one_member_on_break_and_one_inactive_for_trying_the_roster_filters(self):
+        call_command("seed", "basic", verbosity=0)
+
+        self.assertEqual(Member.objects.get(name="Beth Rowe").current_status, "on_break")
+        self.assertEqual(Member.objects.get(name="Ian Stone").current_status, "inactive")
 
     def test_seed_basic_dates_statuses_from_today_not_a_year_ago(self):
         call_command("seed", "basic", verbosity=0)

@@ -857,6 +857,115 @@ class MemberListFilterTests(TestCase):
         self.assertContains(response, "Alice Alto")
         self.assertContains(response, "Tom Tenor")
 
+    def test_ro4_the_page_has_a_labelled_dropdown_per_filter_and_loads_the_script(self):
+        response = self.client.get("/members/")
+
+        for name, label in [("section", "Section"), ("status", "Status"), ("praise_team", "Praise Team")]:
+            self.assertContains(response, f'<label for="id_{name}"')
+            self.assertContains(response, f'<select name="{name}"')
+        self.assertContains(response, "members-filter.js")
+        # Without JavaScript the form still works through its own button.
+        self.assertContains(response, "<noscript>")
+        self.assertContains(response, "Apply")
+
+    def test_ro4_the_filter_form_sends_its_choices_in_the_url(self):
+        self.assertContains(self.client.get("/members/"), '<form method="get"')
+
+    def test_ro4_the_selected_choices_stay_selected(self):
+        response = self.client.get("/members/?section=alto&status=on_break&praise_team=yes")
+
+        self.assertContains(response, '<option value="alto" selected>')
+        self.assertContains(response, '<option value="on_break" selected>')
+        self.assertContains(response, '<option value="yes" selected>')
+
+    def test_ro4_a_filter_that_matches_nobody_says_so_and_keeps_the_form(self):
+        self.add("Alice Alto", "alto")
+
+        response = self.client.get("/members/?section=bass")
+
+        self.assertContains(response, "No members match these filters.")
+        self.assertContains(response, '<select name="section"')
+
+    def test_ro4_reset_is_absent_on_the_default_view_and_present_when_a_filter_differs(self):
+        self.assertNotContains(self.client.get("/members/"), ">Reset</a>")
+        for query in ["section=alto", "status=on_break", "status=all", "praise_team=no"]:
+            response = self.client.get(f"/members/?{query}")
+            self.assertContains(response, 'href="/members/" class="link">Reset</a>')
+
+    def test_ro4_a_filter_set_to_its_default_does_not_show_reset(self):
+        self.assertNotContains(self.client.get("/members/?section=&status=&praise_team="), ">Reset</a>")
+
+    def test_ro4_the_list_reads_the_same_number_of_queries_with_many_members_filtered_or_not(self):
+        for query in ["", "?section=alto&status=all&praise_team=yes"]:
+            self.add("First", "alto", praise_team=True)
+            with CaptureQueriesContext(connection) as few:
+                self.client.get(f"/members/{query}")
+            for i in range(6):
+                self.add(f"M{i}", "alto", "on_break", praise_team=True)
+            with CaptureQueriesContext(connection) as many:
+                self.client.get(f"/members/{query}")
+
+            self.assertEqual(len(few), len(many))
+
+
+class LeaderFilterTests(TestCase):
+    """RO-4, RO-3: a section leader can only filter within their own sections."""
+
+    def setUp(self):
+        for name, section in [("Alice Alto", "alto"), ("Tom Tenor", "tenor"), ("Bea Bass", "bass"), ("Sue Soprano", "soprano")]:
+            member = make_member(name=name, section=section, praise_team=True)
+            StatusChange.objects.create(member=member, status="active", effective_on=date(2026, 1, 1))
+        self.alto_leader = Account.objects.create_user("alto@example.com", sections=["alto"])
+        self.two_section_leader = Account.objects.create_user("tenor@example.com", sections=["tenor", "bass"])
+
+    def test_ro4_a_leader_with_two_sections_is_offered_only_those_sections(self):
+        self.client.force_login(self.two_section_leader)
+
+        response = self.client.get("/members/")
+
+        self.assertContains(response, '<select name="section"')
+        self.assertContains(response, '<option value="tenor">')
+        self.assertContains(response, '<option value="bass">')
+        self.assertNotContains(response, '<option value="alto">')
+        self.assertNotContains(response, '<option value="soprano">')
+
+    def test_ro4_a_leader_with_two_sections_can_filter_between_them(self):
+        self.client.force_login(self.two_section_leader)
+
+        response = self.client.get("/members/?section=bass")
+
+        self.assertContains(response, "Bea Bass")
+        self.assertNotContains(response, "Tom Tenor")
+
+    def test_ro4_a_leader_with_one_section_gets_no_section_dropdown(self):
+        self.client.force_login(self.alto_leader)
+
+        response = self.client.get("/members/")
+
+        self.assertNotContains(response, '<select name="section"')
+        self.assertContains(response, '<select name="status"')
+
+    def test_ro4_a_leader_asking_for_a_section_that_is_not_theirs_gets_their_normal_list(self):
+        self.client.force_login(self.alto_leader)
+
+        for query in ["section=tenor", "section=alto"]:
+            response = self.client.get(f"/members/?{query}")
+
+            self.assertContains(response, "Alice Alto")
+            for other in ["Tom Tenor", "Bea Bass", "Sue Soprano"]:
+                self.assertNotContains(response, other)
+            self.assertNotContains(response, ">Reset</a>")
+
+    def test_ro4_a_leaders_other_filters_only_cover_members_they_can_see(self):
+        self.client.force_login(self.two_section_leader)
+
+        response = self.client.get("/members/?praise_team=yes&status=all")
+
+        self.assertContains(response, "Tom Tenor")
+        self.assertContains(response, "Bea Bass")
+        self.assertNotContains(response, "Alice Alto")
+        self.assertNotContains(response, "Sue Soprano")
+
 
 class ChangeSectionTests(TestCase):
     """RO-6: admins record section changes, each with its date."""

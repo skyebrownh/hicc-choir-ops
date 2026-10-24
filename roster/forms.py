@@ -146,6 +146,11 @@ class MemberFilterForm(forms.Form):
         # RO-4: true when the default status choice is in force, so the page can say Inactive members are hidden.
         return self._value("status") == ""
 
+    @property
+    def changed_from_default(self):
+        # RO-4: true once any filter differs from the default view, so the page offers "Reset".
+        return any(self._value(name) for name in self.fields)
+
     def everyone_query(self):
         """RO-4: the query string for "Show everyone": the same filters, with every status."""
         chosen = {name: self._value(name) for name in ("section", "praise_team") if self._value(name)}
