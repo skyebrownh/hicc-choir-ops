@@ -9,7 +9,7 @@ from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from accounts.models import Account
-from roster.models import Member, StatusChange
+from roster.models import Member, PraiseTeamChange, SectionChange, StatusChange
 
 
 def today():
@@ -437,6 +437,39 @@ class BackfillMigrationTests(TestCase):
         self.assertEqual(keeps.status_changes.count(), 1)
 
 
+class SectionBackfillMigrationTests(TestCase):
+    def test_ro6_the_migration_copies_each_members_section_and_flag_into_changes_dated_that_day(self):
+        from importlib import import_module
+
+        from django.apps import apps
+
+        migration = import_module("roster.migrations.0003_section_praise_team_changes")
+        on = Member.objects.create(name="On Team", section="tenor", praise_team=True)
+        off = Member.objects.create(name="Off Team", section="bass", praise_team=False)
+
+        migration.copy_section_and_praise_team_into_changes(apps, None)
+
+        for member, section, flag in [(on, "tenor", True), (off, "bass", False)]:
+            section_change = member.section_changes.get()
+            flag_change = member.praise_team_changes.get()
+            self.assertEqual((section_change.section, section_change.effective_on), (section, today()))
+            self.assertEqual((flag_change.praise_team, flag_change.effective_on), (flag, today()))
+
+    def test_ro6_running_the_copy_again_leaves_members_with_changes_alone(self):
+        from importlib import import_module
+
+        from django.apps import apps
+
+        migration = import_module("roster.migrations.0003_section_praise_team_changes")
+        member = Member.objects.create(name="Ada", section="alto")
+        SectionChange.objects.create(member=member, section="soprano", effective_on=date(2026, 1, 5))
+
+        migration.copy_section_and_praise_team_into_changes(apps, None)
+
+        self.assertEqual(member.section_changes.count(), 1)
+        self.assertEqual(member.current_section, "soprano")
+
+
 class StatusAdminTests(TestCase):
     """RO-2: status changes are reached in the Django admin only through a member."""
 
@@ -585,6 +618,50 @@ class MustChangeRuleTests(TestCase):
         response = self.client.post(f"/members/{fresh.pk}/status/", {"status": "inactive", "effective_on": "2026-02-01"})
 
         self.assertEqual(response.status_code, 302)
+
+
+class SectionAndPraiseTeamLookupTests(TestCase):
+    """RO-6: what a member's section or Praise Team flag was on any date, for later issues to use."""
+
+    def setUp(self):
+        self.member = Member.objects.create(name="Ada", section="alto")
+
+    def test_ro6_section_on_a_date_is_the_latest_change_on_or_before_it(self):
+        SectionChange.objects.create(member=self.member, section="alto", effective_on=date(2026, 1, 5))
+        SectionChange.objects.create(member=self.member, section="soprano", effective_on=date(2026, 6, 1))
+
+        self.assertIsNone(self.member.section_on(date(2026, 1, 4)))  # before the first change
+        self.assertEqual(self.member.section_on(date(2026, 1, 5)), "alto")  # the day it starts
+        self.assertEqual(self.member.section_on(date(2026, 5, 31)), "alto")  # between changes
+        self.assertEqual(self.member.section_on(date(2026, 6, 1)), "soprano")
+        self.assertEqual(self.member.section_on(today()), "soprano")
+
+    def test_ro6_two_section_changes_on_one_date_go_to_the_last_entered(self):
+        SectionChange.objects.create(member=self.member, section="alto", effective_on=date(2026, 6, 1))
+        SectionChange.objects.create(member=self.member, section="tenor", effective_on=date(2026, 6, 1))
+
+        self.assertEqual(self.member.section_on(date(2026, 6, 1)), "tenor")
+        self.assertEqual(self.member.current_section, "tenor")
+
+    def test_ro6_the_current_section_is_the_latest_by_date_not_the_last_entered(self):
+        SectionChange.objects.create(member=self.member, section="soprano", effective_on=date(2026, 6, 1))
+        SectionChange.objects.create(member=self.member, section="alto", effective_on=date(2026, 1, 5))
+
+        self.assertEqual(self.member.current_section, "soprano")
+
+    def test_ro6_praise_team_on_a_date_is_the_latest_change_on_or_before_it(self):
+        PraiseTeamChange.objects.create(member=self.member, praise_team=True, effective_on=date(2026, 3, 1))
+        PraiseTeamChange.objects.create(member=self.member, praise_team=False, effective_on=date(2026, 9, 1))
+
+        self.assertFalse(self.member.praise_team_on(date(2026, 2, 28)))  # no change yet means not on it
+        self.assertTrue(self.member.praise_team_on(date(2026, 3, 1)))
+        self.assertTrue(self.member.praise_team_on(date(2026, 8, 31)))
+        self.assertFalse(self.member.praise_team_on(date(2026, 9, 1)))
+        self.assertFalse(self.member.current_praise_team)
+
+    def test_ro6_a_member_with_no_section_change_has_no_section(self):
+        self.assertIsNone(self.member.current_section)
+        self.assertIsNone(self.member.section_on(today()))
 
 
 class MemberListStatusTests(TestCase):
