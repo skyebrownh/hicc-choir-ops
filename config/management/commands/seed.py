@@ -3,7 +3,11 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from accounts.models import Account, Role
-from roster.models import Member
+from datetime import timedelta
+
+from django.utils import timezone
+
+from roster.models import Member, StatusChange
 
 # Fake names only, on example.com: this is development data and must never hold real people.
 BASIC_MEMBERS = [
@@ -24,15 +28,23 @@ BASIC_MEMBERS = [
 
 
 def seed_basic():
+    today = timezone.localdate()
     for name, section, praise_team in BASIC_MEMBERS:
         slug = name.lower().replace(" ", ".")
-        Member.objects.create(
+        member = Member.objects.create(
             name=name,
             section=section,
             praise_team=praise_team,
             email=f"{slug}@example.com",
             phone="555-0100",
         )
+        # RO-2: everyone is Active. Amy Walker has a break behind her, so the history list has
+        # something to show: Active, then On Break, then back to Active.
+        if name == "Amy Walker":
+            for status, days_ago in [("active", 365), ("on_break", 120), ("active", 30)]:
+                StatusChange.objects.create(member=member, status=status, effective_on=today - timedelta(days=days_ago))
+        else:
+            StatusChange.objects.create(member=member, status="active", effective_on=today - timedelta(days=365))
     # For trying the section-leader view by hand. The sign-in code prints in the server console.
     Account.objects.create_user("alto.leader@example.com", sections=["alto"])
     Account.objects.create_user("tenor.leader@example.com", sections=["tenor", "bass"])

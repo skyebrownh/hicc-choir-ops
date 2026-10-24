@@ -369,3 +369,15 @@ class BackfillMigrationTests(TestCase):
         # A member who already has a status is left alone.
         self.assertEqual(keeps.current_status, "inactive")
         self.assertEqual(keeps.status_changes.count(), 1)
+
+
+class StatusAdminTests(TestCase):
+    def test_ro2_admin_sees_a_members_status_changes_in_the_django_admin(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+        member = Member.objects.create(name="Grace Hopper", section="alto")
+        StatusChange.objects.create(member=member, status="on_break", effective_on=date(2026, 6, 1))
+
+        response = self.client.get(f"/admin/roster/member/{member.pk}/change/")
+
+        self.assertContains(response, "2026-06-01")
+        self.assertContains(response, 'value="on_break" selected')
