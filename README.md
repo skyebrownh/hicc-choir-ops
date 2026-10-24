@@ -160,6 +160,31 @@ gunzip -c ~/Backups/hicc-choir-ops/hicc-YYYY-MM-DD-HHMM.sql.gz \
 
 Then check `/health/db/` shows `ok` and sign in to confirm the data looks right.
 
+## Importing members
+
+A one-time command loads the existing member list from a CSV file (RO-5). The real list never goes into git: keep it in `private-data/`, which is git-ignored. Git doesn't track empty folders, so make it yourself once:
+
+```sh
+mkdir -p private-data
+```
+
+Convert the assistant's plain-text list to a CSV by hand, with a header row and these columns (only `name` and `section` are required):
+
+| Column | What goes in it |
+| --- | --- |
+| `name` | The member's full name |
+| `section` | Soprano, Alto, Tenor or Bass (any capitals) |
+| `praise_team` | `yes`, `y`, `true` or `1` for the Praise Team; `no`, `n`, `false`, `0` or blank for not |
+| `phone`, `email`, `notes` | Optional |
+
+Then run it with the file's path:
+
+```sh
+uv run --env-file .env python manage.py import_members private-data/members.csv
+```
+
+Every member is added as Active, with their section and Praise Team flag, all dated today. The command checks every row first: if any row is bad it imports nothing and lists each problem as `line N: reason` (never the person's details), so fix the file and run it again. A name already on the roster counts as a bad row, so a second run can't create duplicates.
+
 ## How work happens
 
 Every change starts from a GitHub issue; [CLAUDE.md](CLAUDE.md) has the project's conventions.
