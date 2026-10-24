@@ -51,12 +51,12 @@
     @apply mt-2 text-red-600;
   }
 
-  /* Pills for short facts, such as a member's section. */
+  /* Pills for short facts, such as a member's section. text-base, not text-sm: 16px at every width (NFR). */
   .badge {
-    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-medium bg-gray-100 text-gray-700;
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium bg-gray-100 text-gray-700;
   }
   .badge-accent {
-    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-medium bg-indigo-50 text-indigo-700;
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium bg-indigo-50 text-indigo-700;
   }
 
   .alert-error {
