@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ member.name }} · HICC Choir Ops{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold">{{ member.name }}</h1>
+<dl class="mt-4 space-y-2">
+  <div><dt class="font-medium">Section</dt><dd>{{ member.get_section_display }}</dd></div>
+  <div><dt class="font-medium">Praise Team</dt><dd>{{ member.praise_team|yesno:"Yes,No" }}</dd></div>
+  <div><dt class="font-medium">Phone</dt><dd>{{ member.phone|default:"—" }}</dd></div>
+  <div><dt class="font-medium">Email</dt><dd>{{ member.email|default:"—" }}</dd></div>
+  <div><dt class="font-medium">Notes</dt><dd class="whitespace-pre-line">{{ member.notes|default:"—" }}</dd></div>
+</dl>
+{% endblock %}
