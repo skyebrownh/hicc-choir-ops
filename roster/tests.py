@@ -31,6 +31,16 @@ class MemberTests(TestCase):
             self.assertContains(detail, shown)
         self.assertTrue(member.praise_team)
 
+    def test_ro1_the_praise_team_label_shows_only_for_members_on_it(self):
+        on = Member.objects.create(name="Ann On", section="alto", praise_team=True)
+        off = Member.objects.create(name="Bob Off", section="bass", praise_team=False)
+
+        for url, shown in [(f"/members/{on.pk}/", True), (f"/members/{off.pk}/", False)]:
+            response = self.client.get(url)
+            self.assertEqual(shown, "Praise Team</span>" in response.content.decode(), url)
+        # The list marks the same member rows.
+        self.assertContains(self.client.get("/members/"), "Praise Team</span>", count=1)
+
     def test_ro1_phone_and_email_can_be_blank(self):
         response = self.client.post("/members/new/", {"name": "Ada", "section": "bass"})
 
