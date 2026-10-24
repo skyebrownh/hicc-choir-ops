@@ -9,4 +9,8 @@
   <div><dt class="font-medium">Email</dt><dd>{{ member.email|default:"—" }}</dd></div>
   <div><dt class="font-medium">Notes</dt><dd class="whitespace-pre-line">{{ member.notes|default:"—" }}</dd></div>
 </dl>
+{% if user.is_admin %}
+<a href="{% url 'member-edit' member.pk %}" class="mt-4 flex min-h-11 items-center justify-center rounded bg-blue-800 px-4 font-medium text-white">Edit</a>
+{% endif %}
+<a href="{% url 'member-list' %}" class="mt-4 flex min-h-11 items-center text-blue-800 underline">Back to members</a>
 {% endblock %}
