@@ -10,4 +10,7 @@ urlpatterns = [
     path("members/<int:pk>/edit/", views.member_edit, name="member-edit"),
     path("members/<int:pk>/status-history/", views.member_status_history, name="member-status-history"),
     path("members/<int:pk>/status/", views.member_status, name="member-status"),
+    path("members/<int:pk>/section/", views.member_section, name="member-section"),
+    path("members/<int:pk>/praise-team/", views.member_praise_team, name="member-praise-team"),
+    path("members/<int:pk>/history/", views.member_history, name="member-history"),
 ]

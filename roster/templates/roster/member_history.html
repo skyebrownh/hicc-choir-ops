@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Section and Praise Team history for {{ member.name }} · HICC Choir Ops{% endblock %}
+{% block content %}
+{# RO-6: every section change and Praise Team change with its date, newest first. #}
+<a href="{% url 'member-detail' member.pk %}" class="link">← {{ member.name }}</a>
+<div class="card mt-2">
+  <h1 class="page-title">History for {{ member.name }}</h1>
+  <h2 class="mt-6 font-semibold text-gray-900">Section</h2>
+  <ul class="mt-2 divide-y divide-gray-200">
+    {% for change in section_history %}
+    <li class="flex min-h-11 items-center justify-between gap-3 py-2">
+      <span class="text-gray-900">{{ change.get_section_display }}</span>
+      <span class="muted">{{ change.effective_on|date:"M j, Y" }}</span>
+    </li>
+    {% empty %}
+    <li class="muted py-2">No section yet.</li>
+    {% endfor %}
+  </ul>
+  <h2 class="mt-6 font-semibold text-gray-900">Praise Team</h2>
+  <ul class="mt-2 divide-y divide-gray-200">
+    {% for change in praise_team_history %}
+    <li class="flex min-h-11 items-center justify-between gap-3 py-2">
+      <span class="text-gray-900">{{ change.get_praise_team_display }}</span>
+      <span class="muted">{{ change.effective_on|date:"M j, Y" }}</span>
+    </li>
+    {% empty %}
+    <li class="muted py-2">Not on the Praise Team.</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

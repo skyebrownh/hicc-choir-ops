@@ -6,7 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from accounts.models import Account, Role
-from roster.models import Member, StatusChange
+from roster.models import Member, PraiseTeamChange, SectionChange, StatusChange
 
 # Fake names only, on example.com: this is development data and must never hold real people.
 BASIC_MEMBERS = [
@@ -30,13 +30,20 @@ def seed_basic():
     today = timezone.localdate()
     for name, section, praise_team in BASIC_MEMBERS:
         slug = name.lower().replace(" ", ".")
-        member = Member.objects.create(
-            name=name,
-            section=section,
-            praise_team=praise_team,
-            email=f"{slug}@example.com",
-            phone="555-0100",
-        )
+        member = Member.objects.create(name=name, email=f"{slug}@example.com", phone="555-0100")
+        # RO-6: everyone's section and Praise Team flag start today, like a member added or migrated today.
+        # Two members have a little history behind them, so the history page has something to show:
+        # Tim Hayes was an Alto until 30 days ago, and Amy Walker joined the Praise Team 30 days ago.
+        if name == "Tim Hayes":
+            SectionChange.objects.create(member=member, section="alto", effective_on=today - timedelta(days=90))
+            SectionChange.objects.create(member=member, section=section, effective_on=today - timedelta(days=30))
+        else:
+            SectionChange.objects.create(member=member, section=section, effective_on=today)
+        if name == "Amy Walker":
+            PraiseTeamChange.objects.create(member=member, praise_team=False, effective_on=today - timedelta(days=90))
+            PraiseTeamChange.objects.create(member=member, praise_team=True, effective_on=today - timedelta(days=30))
+        else:
+            PraiseTeamChange.objects.create(member=member, praise_team=praise_team, effective_on=today)
         # RO-2: everyone is Active from today, like a member added or migrated today. Amy Walker has a break behind her, so the history list has
         # something to show: Active, then On Break, then back to Active.
         if name == "Amy Walker":

@@ -40,7 +40,7 @@ uv run --env-file .env python manage.py runserver
 
 Open http://127.0.0.1:8000/health/ (shows `ok`), http://127.0.0.1:8000/health/db/ (`ok` when Postgres answers) and http://127.0.0.1:8000/admin/ (the Unfold login). Create a local admin with `uv run --env-file .env python manage.py createsuperuser` (it asks for an email only: there are no passwords), then sign in at http://127.0.0.1:8000/signin/. With no `RESEND_API_KEY` set, the 6-digit code prints in the terminal running the server.
 
-To reset your local database to a known state with fake members, run `uv run --env-file .env python manage.py seed basic`. It deletes all members and all section-leader accounts (admin accounts are kept), and refuses to run unless `DEBUG=true`. The `basic` scenario also creates two fake leaders to sign in as: `alto.leader@example.com` (Alto) and `tenor.leader@example.com` (Tenor and Bass); their codes print in the server console.
+To reset your local database to a known state with fake members, run `uv run --env-file .env python manage.py seed basic`. It deletes all members and all section-leader accounts (admin accounts are kept), and refuses to run unless `DEBUG=true`. The `basic` scenario also creates two fake leaders to sign in as: `alto.leader@example.com` (Alto) and `tenor.leader@example.com` (Tenor and Bass); their codes print in the server console. Two members have a little history to look at: Tim Hayes moved from Alto to Tenor 30 days ago, and Amy Walker joined the Praise Team 30 days ago (and has a break behind her).
 
 Accounts replaced Django's built-in user (issue #4). A database migrated before that has to be reset once: `dropdb hicc_choir_ops && createdb hicc_choir_ops`, then `migrate` and `createsuperuser` again.
 

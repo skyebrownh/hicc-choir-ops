@@ -16,7 +16,7 @@
     <a href="{% url 'member-detail' member.pk %}" class="flex min-h-14 items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50">
       <span class="font-medium text-gray-900">{{ member.name }}</span>
       <span class="flex flex-wrap justify-end gap-2">
-        {% if member.praise_team %}<span class="badge-accent">Praise Team</span>{% endif %}
+        {% if member.praise_team_now %}<span class="badge-accent">Praise Team</span>{% endif %}
         {# RO-2: current status. The section is the heading above, so it isn't repeated. #}
         {% if member.status_label %}<span class="badge">{{ member.status_label }}</span>{% endif %}
       </span>

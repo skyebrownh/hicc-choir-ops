@@ -18,13 +18,24 @@ class Status(models.TextChoices):
 
 
 class MemberQuerySet(models.QuerySet):
-    def with_current_status(self):
-        """RO-2: adds `status_now` (the latest change's status) to each member in the same query.
+    def _annotate_latest(self, name, change_model, field):
+        """RO-2, RO-6: adds `name`, the latest change's `field`, unless an earlier step already did.
 
-        Same ordering as Member.status_history(), so the list and the member's page agree.
+        Same ordering as the Member.*_history() methods, so the list and the member's page agree.
+        Skipping a repeat keeps `visible_to(...).with_current_status()` to one subquery per value.
         """
-        latest = StatusChange.objects.filter(member=models.OuterRef("pk")).order_by("-effective_on", "-id")
-        return self.annotate(status_now=models.Subquery(latest.values("status")[:1]))
+        if name in self.query.annotations:
+            return self
+        latest = change_model.objects.filter(member=models.OuterRef("pk")).order_by("-effective_on", "-id")
+        return self.annotate(**{name: models.Subquery(latest.values(field)[:1])})
+
+    def with_current_status(self):
+        """RO-2, RO-6: adds `status_now`, `section_now` and `praise_team_now` (each the latest change's value) in the same query."""
+        return (
+            self._annotate_latest("status_now", StatusChange, "status")
+            ._annotate_latest("section_now", SectionChange, "section")
+            ._annotate_latest("praise_team_now", PraiseTeamChange, "praise_team")
+        )
 
     def visible_to(self, account):
         """RO-3: admins see every member; a section leader sees members of their own sections.
@@ -34,20 +45,19 @@ class MemberQuerySet(models.QuerySet):
         """
         if account.is_admin:
             return self
-        return self.filter(section__in=account.sections)
+        # RO-6: by the section they are in now, so a member who moved leaves their old leader's view.
+        return self._annotate_latest("section_now", SectionChange, "section").filter(section_now__in=account.sections)
 
 
 class Member(models.Model):
     """A choir member (SPEC.md, Member). Not the same as an Account: most members never sign in."""
 
-    # RO-1: name, phone, email, section, Praise Team yes/no, and notes.
+    # RO-1: name, phone, email, section, Praise Team yes/no, and notes. Section and Praise Team
+    # are not fields here: each is the latest of its dated changes (RO-6), read through
+    # `current_section` and `current_praise_team`.
     name = models.CharField(max_length=200)
     phone = models.CharField(max_length=50, blank=True)
     email = models.EmailField(blank=True)
-    # For now plain fields; the section-and-Praise-Team history issue (#10) replaces them
-    # with dated changes (RO-6).
-    section = models.CharField(max_length=10, choices=Section.choices)
-    praise_team = models.BooleanField(default=False)
     notes = models.TextField(blank=True)
 
     objects = MemberQuerySet.as_manager()
@@ -71,26 +81,83 @@ class Member(models.Model):
         latest = self.status_history().first()
         return latest.get_status_display() if latest else ""
 
+    def start_history(self, *, section, praise_team=False, status=Status.ACTIVE):
+        """RO-2, RO-6: a new member's first status, section and Praise Team rows, dated today.
 
-class StatusChange(models.Model):
-    """RO-2: one status, with the date it took effect. A member's status is their latest change."""
+        Every member gets all three so their history is complete. Call it inside the transaction
+        that saves the member, so a failure never leaves a member without them.
+        """
+        on = timezone.localdate()
+        StatusChange.objects.create(member=self, status=status, effective_on=on)
+        SectionChange.objects.create(member=self, section=section, effective_on=on)
+        PraiseTeamChange.objects.create(member=self, praise_team=praise_team, effective_on=on)
 
-    member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name="status_changes")
-    status = models.CharField(max_length=10, choices=Status.choices)
+    def section_history(self):
+        """RO-6: newest change first, same-date ties to the one entered last (like status_history)."""
+        return self.section_changes.order_by("-effective_on", "-id")
+
+    def section_on(self, day):
+        """RO-6: the section on `day`: the latest change on or before it, or None before the first one."""
+        latest = self.section_history().filter(effective_on__lte=day).first()
+        return latest.section if latest else None
+
+    @property
+    def current_section(self):
+        # RO-6: the latest change. None only for a member with no change at all (not expected in the app).
+        latest = self.section_history().first()
+        return latest.section if latest else None
+
+    @property
+    def current_section_display(self):
+        # RO-6: the label for the current section, for pages that show it.
+        latest = self.section_history().first()
+        return latest.get_section_display() if latest else ""
+
+    def praise_team_history(self):
+        """RO-6: newest change first, same-date ties to the one entered last."""
+        return self.praise_team_changes.order_by("-effective_on", "-id")
+
+    def praise_team_on(self, day):
+        """RO-6: whether they were on the Praise Team on `day`. No change on or before it means not on it."""
+        latest = self.praise_team_history().filter(effective_on__lte=day).first()
+        return latest.praise_team if latest else False
+
+    @property
+    def current_praise_team(self):
+        # RO-6: the latest change; a member with none is not on the Praise Team.
+        latest = self.praise_team_history().first()
+        return latest.praise_team if latest else False
+
+
+class DatedChange(models.Model):
+    """RO-2, RO-6: a value for a member with the date it took effect. Their value is their latest change.
+
+    Status, section and Praise Team all keep history this way, so the rules about dates
+    ("not in the future", "must actually change something") are written once, here.
+    """
+
+    # RO-2, RO-6: the name of the field a subclass adds to hold its value ("status", "section", ...).
+    value_field = None
+
     effective_on = models.DateField()
 
-    def __str__(self):
-        return f"{self.member}: {self.get_status_display()} from {self.effective_on}"
+    class Meta:
+        abstract = True
+
+    def value_label(self):
+        # How the value reads inside a message. Subclasses override this where the plain label reads oddly.
+        return getattr(self, f"get_{self.value_field}_display")()
 
     def clean(self):
-        """RO-2: a change must actually change the status.
+        """RO-2, RO-6: a change must actually change the value.
 
         It is compared with the change in effect on its date and with the next later one
         (which it would otherwise make pointless). Living on the model, the rule holds for
         the app's form and the Django admin alike.
         """
         super().clean()
-        if not self.member_id or not self.effective_on or not self.status:
+        value = getattr(self, self.value_field)
+        if not self.member_id or not self.effective_on or value in (None, ""):
             return  # Other field errors are reported already.
         # RO-2: a past or today's date only, in US Eastern time. A future change would
         # otherwise become "current" before its date arrives.
@@ -99,19 +166,66 @@ class StatusChange(models.Model):
         # Sort key mirrors the history order: by date, then by when it was entered.
         # A row not saved yet counts as entered last, so it follows same-date rows.
         others = sorted(
-            self.member.status_changes.exclude(pk=self.pk), key=lambda c: (c.effective_on, c.pk)
+            type(self).objects.filter(member=self.member).exclude(pk=self.pk), key=lambda c: (c.effective_on, c.pk)
         )
         mine = (self.effective_on, self.pk or float("inf"))
         before = [c for c in others if (c.effective_on, c.pk) < mine]
         after = [c for c in others if (c.effective_on, c.pk) > mine]
-        if before and before[-1].status == self.status:
+        if before and getattr(before[-1], self.value_field) == value:
             raise ValidationError(
-                {"status": f"{self.member} is already {self.get_status_display()} on {date_format(self.effective_on)}."}
+                {self.value_field: f"{self.member} is already {self.value_label()} on {date_format(self.effective_on)}."}
             )
-        if after and after[0].status == self.status:
+        if after and getattr(after[0], self.value_field) == value:
             raise ValidationError(
                 {
-                    "status": f"The next change, on {date_format(after[0].effective_on)}, is also "
-                    f"{self.get_status_display()}, so this one would change nothing."
+                    self.value_field: f"The next change, on {date_format(after[0].effective_on)}, is also "
+                    f"{self.value_label()}, so this one would change nothing."
                 }
             )
+
+
+class StatusChange(DatedChange):
+    """RO-2: one status, with the date it took effect. A member's status is their latest change."""
+
+    value_field = "status"
+
+    member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name="status_changes")
+    status = models.CharField(max_length=10, choices=Status.choices)
+
+    def __str__(self):
+        return f"{self.member}: {self.get_status_display()} from {self.effective_on}"
+
+
+class SectionChange(DatedChange):
+    """RO-6: one section, with the date it took effect. A member's section on a date is their latest change on or before it."""
+
+    value_field = "section"
+
+    member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name="section_changes")
+    section = models.CharField(max_length=10, choices=Section.choices)
+
+    def __str__(self):
+        return f"{self.member}: {self.get_section_display()} from {self.effective_on}"
+
+    def value_label(self):
+        return f"in {self.get_section_display()}"
+
+
+class PraiseTeamChange(DatedChange):
+    """RO-6: joining or leaving the Praise Team, with the date it took effect."""
+
+    value_field = "praise_team"
+
+    member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name="praise_team_changes")
+    praise_team = models.BooleanField()
+
+    def __str__(self):
+        return f"{self.member}: {self.value_label()} from {self.effective_on}"
+
+    def get_praise_team_display(self):
+        # The wording pages use for this value, in the same style as get_section_display().
+        return "On the Praise Team" if self.praise_team else "Not on the Praise Team"
+
+    def value_label(self):
+        # Lower-case, for inside a sentence.
+        return self.get_praise_team_display()[0].lower() + self.get_praise_team_display()[1:]
