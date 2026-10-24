@@ -7,20 +7,24 @@
   <a href="{% url 'member-add' %}" class="btn-primary w-auto shrink-0">Add member</a>
   {% endif %}
 </div>
-{% if members %}
-<ul class="mt-6 divide-y divide-gray-200 overflow-hidden rounded-lg bg-white shadow-sm">
-  {% for member in members %}
+{% if has_members %}
+{% for group in groups %}
+<h2 class="mt-6 font-semibold text-gray-900">{{ group.label }}</h2>
+<ul class="mt-2 divide-y divide-gray-200 overflow-hidden rounded-lg bg-white shadow-sm">
+  {% for member in group.members %}
   <li>
     <a href="{% url 'member-detail' member.pk %}" class="flex min-h-14 items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50">
       <span class="font-medium text-gray-900">{{ member.name }}</span>
       <span class="flex flex-wrap justify-end gap-2">
-        <span class="badge">{{ member.get_section_display }}</span>
         {% if member.praise_team %}<span class="badge-accent">Praise Team</span>{% endif %}
+        {# RO-2: current status. The section is the heading above, so it isn't repeated. #}
+        {% if member.status_label %}<span class="badge">{{ member.status_label }}</span>{% endif %}
       </span>
     </a>
   </li>
   {% endfor %}
 </ul>
+{% endfor %}
 {% else %}
 <p class="empty-state mt-6">No members to show.</p>
 {% endif %}

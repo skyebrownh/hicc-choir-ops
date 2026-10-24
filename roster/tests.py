@@ -508,3 +508,68 @@ class MustChangeRuleTests(TestCase):
         response = self.client.post(f"/members/{fresh.pk}/status/", {"status": "inactive", "effective_on": "2026-02-01"})
 
         self.assertEqual(response.status_code, 302)
+
+
+class MemberListStatusTests(TestCase):
+    def setUp(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+
+    def add(self, name, section, *statuses):
+        member = Member.objects.create(name=name, section=section)
+        for i, status in enumerate(statuses):
+            StatusChange.objects.create(member=member, status=status, effective_on=date(2026, 1, 1 + i))
+        return member
+
+    def test_ro2_the_list_is_grouped_by_section_in_choir_order_with_a_heading_each(self):
+        self.add("Bea Bass", "bass", "active")
+        self.add("Sue Soprano", "soprano", "active")
+        self.add("Tom Tenor", "tenor", "active")
+        self.add("Alice Alto", "alto", "active")
+
+        content = self.client.get("/members/").content.decode()
+
+        order = [content.index(f">{heading}</h2>") for heading in ["Soprano", "Alto", "Tenor", "Bass"]]
+        self.assertEqual(order, sorted(order))
+
+    def test_ro2_within_a_section_members_are_ordered_by_status_then_name(self):
+        self.add("Zed Active", "alto", "active")
+        self.add("Amy Inactive", "alto", "active", "inactive")
+        self.add("Ben OnBreak", "alto", "active", "on_break")
+        self.add("Abe Active", "alto", "active")
+
+        content = self.client.get("/members/").content.decode()
+
+        names = ["Abe Active", "Zed Active", "Ben OnBreak", "Amy Inactive"]
+        positions = [content.index(name) for name in names]
+        self.assertEqual(positions, sorted(positions))
+
+    def test_ro2_each_member_shows_their_current_status_not_an_old_one(self):
+        self.add("Ben", "alto", "active", "on_break")
+
+        response = self.client.get("/members/")
+
+        self.assertContains(response, ">On Break</span>", count=1)
+        self.assertNotContains(response, ">Active</span>")
+
+    def test_ro3_a_leader_sees_headings_only_for_their_own_sections(self):
+        self.add("Alice Alto", "alto", "active")
+        self.add("Tom Tenor", "tenor", "active")
+        self.client.force_login(Account.objects.create_user("alto@example.com", sections=["alto"]))
+
+        response = self.client.get("/members/")
+
+        self.assertContains(response, ">Alto</h2>")
+        self.assertNotContains(response, ">Tenor</h2>")
+        self.assertContains(response, ">Active</span>")
+
+    def test_ro2_the_list_reads_statuses_in_a_fixed_number_of_queries(self):
+        for i in range(2):
+            self.add(f"M{i}", "alto", "active")
+        with CaptureQueriesContext(connection) as few:
+            self.client.get("/members/")
+        for i in range(2, 8):
+            self.add(f"M{i}", "bass", "active", "on_break")
+        with CaptureQueriesContext(connection) as many:
+            self.client.get("/members/")
+
+        self.assertEqual(len(few), len(many))

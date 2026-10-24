@@ -2,7 +2,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from accounts.models import Role
+from accounts.models import Role, Section
 from accounts.permissions import role_required
 from roster.forms import MemberForm, StatusChangeForm
 from roster.models import Member, Status, StatusChange
@@ -10,8 +10,22 @@ from roster.models import Member, Status, StatusChange
 
 def member_list(request):
     """RO-3: admins see everyone, section leaders their own sections."""
-    members = Member.objects.visible_to(request.user).order_by("name")
-    return render(request, "roster/member_list.html", {"members": members})
+    members = Member.objects.visible_to(request.user).with_current_status()
+    # RO-2: in each section, Active first, then On Break, then Inactive, then by name.
+    status_rank = {status: rank for rank, status in enumerate(Status.values)}
+    members = sorted(members, key=lambda m: (status_rank.get(m.status_now, len(status_rank)), m.name.lower()))
+    for member in members:
+        member.status_label = Status(member.status_now).label if member.status_now else ""
+    # Sections in the choir's usual order (SPEC.md lists them Soprano, Alto, Tenor, Bass).
+    groups = [
+        {"label": section.label, "members": [m for m in members if m.section == section.value]}
+        for section in Section
+    ]
+    return render(
+        request,
+        "roster/member_list.html",
+        {"groups": [g for g in groups if g["members"]], "has_members": bool(members)},
+    )
 
 
 def member_detail(request, pk):

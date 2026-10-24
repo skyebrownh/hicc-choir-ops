@@ -16,6 +16,14 @@ class Status(models.TextChoices):
 
 
 class MemberQuerySet(models.QuerySet):
+    def with_current_status(self):
+        """RO-2: adds `status_now` (the latest change's status) to each member in the same query.
+
+        Same ordering as Member.status_history(), so the list and the member's page agree.
+        """
+        latest = StatusChange.objects.filter(member=models.OuterRef("pk")).order_by("-effective_on", "-id")
+        return self.annotate(status_now=models.Subquery(latest.values("status")[:1]))
+
     def visible_to(self, account):
         """RO-3: admins see every member; a section leader sees members of their own sections.
 
