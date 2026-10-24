@@ -323,3 +323,23 @@ class InitialStatusTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(member.status_changes.count(), 1)
         self.assertNotContains(self.client.get(f"/members/{member.pk}/edit/"), "initial_status")
+
+
+class BackfillMigrationTests(TestCase):
+    def test_ro2_the_migration_gives_an_existing_member_an_active_status_dated_that_day(self):
+        from importlib import import_module
+
+        from django.apps import apps
+
+        migration = import_module("roster.migrations.0002_statuschange")
+        lonely = Member.objects.create(name="Had no status", section="alto")
+        keeps = Member.objects.create(name="Already set", section="bass")
+        StatusChange.objects.create(member=keeps, status="inactive", effective_on=date(2026, 1, 5))
+
+        migration.give_existing_members_an_active_status(apps, None)
+
+        change = lonely.status_changes.get()
+        self.assertEqual((change.status, change.effective_on), ("active", today()))
+        # A member who already has a status is left alone.
+        self.assertEqual(keeps.current_status, "inactive")
+        self.assertEqual(keeps.status_changes.count(), 1)

@@ -2,6 +2,22 @@
 
 import django.db.models.deletion
 from django.db import migrations, models
+from django.utils import timezone
+
+
+def give_existing_members_an_active_status(apps, schema_editor):
+    """RO-2: members that existed before status history start as Active, dated the day this runs.
+
+    Uses the historical models Django passes in (not the real ones), so this keeps
+    working however the models change later.
+    """
+    Member = apps.get_model("roster", "Member")
+    StatusChange = apps.get_model("roster", "StatusChange")
+    today = timezone.localdate()
+    StatusChange.objects.bulk_create(
+        StatusChange(member=member, status="active", effective_on=today)
+        for member in Member.objects.filter(status_changes__isnull=True)
+    )
 
 
 class Migration(migrations.Migration):
@@ -20,4 +36,6 @@ class Migration(migrations.Migration):
                 ('member', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='status_changes', to='roster.member')),
             ],
         ),
+        # Nothing to undo: reversing drops the table, and the rows with it.
+        migrations.RunPython(give_existing_members_an_active_status, migrations.RunPython.noop),
     ]
