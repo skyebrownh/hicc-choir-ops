@@ -1,14 +1,12 @@
-from django import forms
 from django.contrib import admin
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.html import format_html
 from unfold.admin import ModelAdmin
 from unfold.widgets import UnfoldAdminSelectWidget, UnfoldBooleanWidget
 
-from accounts.models import Section
-from roster.models import Member, PraiseTeamChange, SectionChange, Status, StatusChange
+from roster.forms import FirstSectionAndFlagForm
+from roster.models import Member, PraiseTeamChange, SectionChange, StatusChange
 
 
 class MemberChangeAdmin(ModelAdmin):
@@ -59,17 +57,14 @@ class PraiseTeamChangeAdmin(MemberChangeAdmin):
     list_display = ["effective_on", "praise_team", "member"]
 
 
-class MemberAddForm(forms.ModelForm):
+class MemberAddForm(FirstSectionAndFlagForm):
     """RO-6: the admin's add form also asks for the first section and Praise Team flag, as the app's does."""
 
-    initial_section = forms.ChoiceField(
-        choices=[("", "---------"), *Section.choices], label="Section", widget=UnfoldAdminSelectWidget
-    )
-    initial_praise_team = forms.BooleanField(required=False, label="On the Praise Team", widget=UnfoldBooleanWidget)
-
-    class Meta:
-        model = Member
-        fields = ["name", "phone", "email", "notes"]
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # The fields are the app form's; only the look is Unfold's.
+        self.fields["initial_section"].widget = UnfoldAdminSelectWidget(choices=self.fields["initial_section"].choices)
+        self.fields["initial_praise_team"].widget = UnfoldBooleanWidget()
 
 
 @admin.register(Member)
@@ -97,11 +92,8 @@ class MemberAdmin(ModelAdmin):
         # RO-2, RO-6: every member has a status, section and Praise Team flag, as with the app's Add form:
         # a new member starts Active today, in the section and with the flag the form gave. Editing leaves the history alone.
         if not change:
-            today = timezone.localdate()
-            StatusChange.objects.create(member=obj, status=Status.ACTIVE, effective_on=today)
-            SectionChange.objects.create(member=obj, section=form.cleaned_data["initial_section"], effective_on=today)
-            PraiseTeamChange.objects.create(
-                member=obj, praise_team=form.cleaned_data["initial_praise_team"], effective_on=today
+            obj.start_history(
+                section=form.cleaned_data["initial_section"], praise_team=form.cleaned_data["initial_praise_team"]
             )
 
     def _link(self, member, model_name, related, singular, plural):

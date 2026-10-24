@@ -8,28 +8,38 @@ from roster.models import Member, PraiseTeamChange, SectionChange, Status, Statu
 INPUT_CLASSES = "input"
 
 
-class MemberForm(forms.ModelForm):
+class FirstSectionAndFlagForm(forms.ModelForm):
+    """RO-1, RO-6: a member's own fields plus their first section and Praise Team flag, asked for on add only.
+
+    The app's Add form and the Django admin's add form both build on this, so the two cannot drift.
+    Later changes go through the change forms below, so editing a member never touches their history.
+    """
+
     class Meta:
         model = Member
         # RO-1. The model's EmailField checks the email's format; name is required.
         fields = ["name", "phone", "email", "notes"]
 
-    # RO-2, RO-6: only on the add page. Status left out means Active; Section is required; Praise Team
-    # defaults to No. All three are dated today. Later changes go through the change forms below, so
-    # editing a member never touches their history.
-    initial_status = forms.ChoiceField(choices=Status.choices, initial=Status.ACTIVE, label="Status", required=False)
     initial_section = forms.ChoiceField(choices=[("", "---------"), *Section.choices], label="Section")
     initial_praise_team = forms.BooleanField(required=False, label="On the Praise Team")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        initial_fields = ["initial_status", "initial_section", "initial_praise_team"]
         if self.instance.pk:
-            for name in initial_fields:
-                del self.fields[name]
+            del self.fields["initial_section"], self.fields["initial_praise_team"]
+
+
+class MemberForm(FirstSectionAndFlagForm):
+    # RO-2: only on the add page. Left out means Active.
+    initial_status = forms.ChoiceField(choices=Status.choices, initial=Status.ACTIVE, label="Status", required=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            del self.fields["initial_status"]
         else:
             # RO-2: Status, Section and Praise Team sit right above Notes, since they are chosen together.
-            self.order_fields(["name", "phone", "email", *initial_fields, "notes"])
+            self.order_fields(["name", "phone", "email", "initial_status", "initial_section", "initial_praise_team", "notes"])
         for name, field in self.fields.items():
             if name == "initial_praise_team":
                 field.widget.attrs["class"] = "size-6 accent-indigo-600"

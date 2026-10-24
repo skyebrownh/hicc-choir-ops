@@ -18,18 +18,23 @@ class Status(models.TextChoices):
 
 
 class MemberQuerySet(models.QuerySet):
-    def _latest(self, change_model, field):
-        # RO-2, RO-6: the latest change's value, with the same ordering as the Member.*_history() methods
-        # so the list and the member's page agree.
+    def _annotate_latest(self, name, change_model, field):
+        """RO-2, RO-6: adds `name`, the latest change's `field`, unless an earlier step already did.
+
+        Same ordering as the Member.*_history() methods, so the list and the member's page agree.
+        Skipping a repeat keeps `visible_to(...).with_current_status()` to one subquery per value.
+        """
+        if name in self.query.annotations:
+            return self
         latest = change_model.objects.filter(member=models.OuterRef("pk")).order_by("-effective_on", "-id")
-        return models.Subquery(latest.values(field)[:1])
+        return self.annotate(**{name: models.Subquery(latest.values(field)[:1])})
 
     def with_current_status(self):
         """RO-2, RO-6: adds `status_now`, `section_now` and `praise_team_now` (each the latest change's value) in the same query."""
-        return self.annotate(
-            status_now=self._latest(StatusChange, "status"),
-            section_now=self._latest(SectionChange, "section"),
-            praise_team_now=self._latest(PraiseTeamChange, "praise_team"),
+        return (
+            self._annotate_latest("status_now", StatusChange, "status")
+            ._annotate_latest("section_now", SectionChange, "section")
+            ._annotate_latest("praise_team_now", PraiseTeamChange, "praise_team")
         )
 
     def visible_to(self, account):
@@ -41,7 +46,7 @@ class MemberQuerySet(models.QuerySet):
         if account.is_admin:
             return self
         # RO-6: by the section they are in now, so a member who moved leaves their old leader's view.
-        return self.annotate(section_now=self._latest(SectionChange, "section")).filter(section_now__in=account.sections)
+        return self._annotate_latest("section_now", SectionChange, "section").filter(section_now__in=account.sections)
 
 
 class Member(models.Model):
@@ -75,6 +80,17 @@ class Member(models.Model):
         # RO-2: the label for the current status, for pages that show it.
         latest = self.status_history().first()
         return latest.get_status_display() if latest else ""
+
+    def start_history(self, *, section, praise_team=False, status=Status.ACTIVE, on=None):
+        """RO-2, RO-6: a new member's first status, section and Praise Team rows, dated `on` (default today).
+
+        Every member gets all three so their history is complete. Call it inside the transaction
+        that saves the member, so a failure never leaves a member without them.
+        """
+        on = on or timezone.localdate()
+        StatusChange.objects.create(member=self, status=status, effective_on=on)
+        SectionChange.objects.create(member=self, section=section, effective_on=on)
+        PraiseTeamChange.objects.create(member=self, praise_team=praise_team, effective_on=on)
 
     def section_history(self):
         """RO-6: newest change first, same-date ties to the one entered last (like status_history)."""

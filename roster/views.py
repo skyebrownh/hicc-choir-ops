@@ -1,6 +1,5 @@
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils import timezone
 
 from accounts.models import Role, Section
 from accounts.permissions import role_required
@@ -76,13 +75,10 @@ def member_add(request):
         # or not at all. Every member gets a first row of each, so their history is complete.
         with transaction.atomic():
             member = form.save()
-            today = timezone.localdate()
-            StatusChange.objects.create(
-                member=member, status=form.cleaned_data["initial_status"] or Status.ACTIVE, effective_on=today
-            )
-            SectionChange.objects.create(member=member, section=form.cleaned_data["initial_section"], effective_on=today)
-            PraiseTeamChange.objects.create(
-                member=member, praise_team=form.cleaned_data["initial_praise_team"], effective_on=today
+            member.start_history(
+                status=form.cleaned_data["initial_status"] or Status.ACTIVE,
+                section=form.cleaned_data["initial_section"],
+                praise_team=form.cleaned_data["initial_praise_team"],
             )
         return redirect("member-detail", pk=member.pk)
     return render(request, "roster/member_form.html", {"form": form, "title": "Add a member"})
