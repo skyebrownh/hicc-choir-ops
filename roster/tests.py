@@ -725,3 +725,351 @@ class MemberListStatusTests(TestCase):
             self.client.get("/members/")
 
         self.assertEqual(len(few), len(many))
+
+
+class ChangeSectionTests(TestCase):
+    """RO-6: admins record section changes, each with its date."""
+
+    def setUp(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+        self.member = make_member("Ada", "alto", since=date(2026, 1, 5))
+        self.url = f"/members/{self.member.pk}/section/"
+
+    def test_ro6_admin_changes_section_with_a_date_and_the_pages_show_it(self):
+        response = self.client.post(self.url, {"section": "soprano", "effective_on": "2026-06-01"})
+
+        self.assertRedirects(response, f"/members/{self.member.pk}/")
+        self.assertEqual(self.member.current_section, "soprano")
+        self.assertEqual(self.member.section_on(date(2026, 5, 31)), "alto")
+        detail = self.client.get(f"/members/{self.member.pk}/")
+        self.assertContains(detail, "Soprano</strong> since Jun 1, 2026. Before that: Alto.")
+        # The member now sits under the Soprano heading in the list.
+        content = self.client.get("/members/").content.decode()
+        self.assertLess(content.index(">Soprano</h2>"), content.index("Ada"))
+        self.assertNotIn(">Alto</h2>", content)
+
+    def test_ro6_the_form_starts_on_todays_date_and_says_the_current_section(self):
+        response = self.client.get(self.url)
+
+        self.assertContains(response, f'value="{today().isoformat()}"')
+        self.assertContains(response, "Now Alto.")
+
+    def test_ro6_a_future_date_is_rejected(self):
+        tomorrow = today() + timedelta(days=1)
+
+        response = self.client.post(self.url, {"section": "soprano", "effective_on": tomorrow.isoformat()})
+
+        self.assertContains(response, "be in the future")
+        self.assertEqual(self.member.section_changes.count(), 1)
+
+    def test_ro6_the_same_section_as_the_one_in_effect_is_rejected(self):
+        response = self.client.post(self.url, {"section": "alto", "effective_on": "2026-03-01"})
+
+        self.assertContains(response, "Ada is already in Alto on Mar 1, 2026")
+        self.assertEqual(self.member.section_changes.count(), 1)
+
+    def test_ro6_a_change_matching_the_next_later_change_is_rejected(self):
+        SectionChange.objects.create(member=self.member, section="tenor", effective_on=date(2026, 6, 1))
+
+        response = self.client.post(self.url, {"section": "tenor", "effective_on": "2026-03-01"})
+
+        self.assertContains(response, "The next change, on Jun 1, 2026, is also in Tenor")
+        self.assertEqual(self.member.section_changes.count(), 2)
+
+    def test_ro6_a_value_other_than_the_four_sections_is_rejected(self):
+        response = self.client.post(self.url, {"section": "descant", "effective_on": "2026-03-01"})
+
+        self.assertContains(response, "Select a valid choice")
+
+
+class ChangePraiseTeamTests(TestCase):
+    """RO-6: admins record joining or leaving the Praise Team, each with its date."""
+
+    def setUp(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+        self.member = make_member("Ada", "alto", praise_team=False, since=date(2026, 1, 5))
+        self.url = f"/members/{self.member.pk}/praise-team/"
+
+    def test_ro6_admin_adds_a_member_to_the_praise_team_with_a_date(self):
+        response = self.client.post(self.url, {"praise_team": "yes", "effective_on": "2026-06-01"})
+
+        self.assertRedirects(response, f"/members/{self.member.pk}/")
+        self.assertTrue(self.member.current_praise_team)
+        self.assertFalse(self.member.praise_team_on(date(2026, 5, 31)))
+        detail = self.client.get(f"/members/{self.member.pk}/")
+        self.assertContains(detail, "On the Praise Team</strong> since Jun 1, 2026. Before that: Not on the Praise Team.")
+        self.assertContains(detail, "Praise Team</span>")
+
+    def test_ro6_admin_takes_a_member_off_the_praise_team(self):
+        self.client.post(self.url, {"praise_team": "yes", "effective_on": "2026-06-01"})
+
+        self.client.post(self.url, {"praise_team": "no", "effective_on": "2026-09-01"})
+
+        self.assertFalse(self.member.current_praise_team)
+        self.assertTrue(self.member.praise_team_on(date(2026, 8, 31)))
+        self.assertNotContains(self.client.get(f"/members/{self.member.pk}/"), "Praise Team</span>")
+
+    def test_ro6_the_form_says_the_current_setting(self):
+        self.assertContains(self.client.get(self.url), "Now not on the Praise Team.")
+
+    def test_ro6_a_future_date_is_rejected(self):
+        tomorrow = today() + timedelta(days=1)
+
+        response = self.client.post(self.url, {"praise_team": "yes", "effective_on": tomorrow.isoformat()})
+
+        self.assertContains(response, "be in the future")
+        self.assertEqual(self.member.praise_team_changes.count(), 1)
+
+    def test_ro6_a_change_that_changes_nothing_is_rejected(self):
+        response = self.client.post(self.url, {"praise_team": "no", "effective_on": "2026-03-01"})
+
+        self.assertContains(response, "already not on the Praise Team on Mar 1, 2026")
+        self.assertEqual(self.member.praise_team_changes.count(), 1)
+
+    def test_ro6_a_change_matching_the_next_later_change_is_rejected(self):
+        PraiseTeamChange.objects.create(member=self.member, praise_team=True, effective_on=date(2026, 6, 1))
+
+        response = self.client.post(self.url, {"praise_team": "yes", "effective_on": "2026-03-01"})
+
+        self.assertContains(response, "would change nothing")
+        self.assertEqual(self.member.praise_team_changes.count(), 2)
+
+
+class CombinedHistoryTests(TestCase):
+    def setUp(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+        self.member = make_member("Ada", "alto", since=date(2026, 1, 5))
+        SectionChange.objects.create(member=self.member, section="soprano", effective_on=date(2026, 6, 1))
+        PraiseTeamChange.objects.create(member=self.member, praise_team=True, effective_on=date(2026, 8, 2))
+
+    def test_ro6_the_member_page_links_to_one_page_that_lists_both_histories_newest_first(self):
+        self.assertContains(self.client.get(f"/members/{self.member.pk}/"), f"/members/{self.member.pk}/history/")
+
+        content = self.client.get(f"/members/{self.member.pk}/history/").content.decode()
+
+        for shown in ["Alto", "Soprano", "Not on the Praise Team", "On the Praise Team", "Jan 5, 2026", "Jun 1, 2026", "Aug 2, 2026"]:
+            self.assertIn(shown, content)
+        self.assertLess(content.index("Jun 1, 2026"), content.index("Jan 5, 2026"))
+
+    def test_ro6_a_member_with_no_changes_says_so(self):
+        bare = Member.objects.create(name="Bare")
+
+        response = self.client.get(f"/members/{bare.pk}/history/")
+
+        self.assertContains(response, "No section yet.")
+        self.assertContains(response, "Not on the Praise Team.")
+
+
+class MovedMemberLeaderTests(TestCase):
+    """RO-3, RO-6: a leader sees a member under the section they are in now."""
+
+    def setUp(self):
+        self.member = make_member("Mia Mover", "alto", since=date(2026, 1, 5))
+        self.alto_leader = Account.objects.create_user("alto@example.com", sections=["alto"])
+        self.soprano_leader = Account.objects.create_user("soprano@example.com", sections=["soprano"])
+        SectionChange.objects.create(member=self.member, section="soprano", effective_on=date(2026, 6, 1))
+
+    def test_ro3_after_a_move_the_old_leader_gets_not_found_and_no_listing(self):
+        self.client.force_login(self.alto_leader)
+
+        self.assertEqual(self.client.get(f"/members/{self.member.pk}/").status_code, 404)
+        self.assertNotContains(self.client.get("/members/"), "Mia Mover")
+
+    def test_ro3_after_a_move_the_new_leader_sees_them(self):
+        self.client.force_login(self.soprano_leader)
+
+        self.assertContains(self.client.get(f"/members/{self.member.pk}/"), "Mia Mover")
+        self.assertContains(self.client.get("/members/"), "Mia Mover")
+
+    def test_ro3_a_move_dated_back_still_counts_as_the_latest_by_date(self):
+        # Entered later, but dated earlier than the move to Soprano, so Soprano stays current.
+        SectionChange.objects.create(member=self.member, section="tenor", effective_on=date(2026, 3, 1))
+        self.client.force_login(self.soprano_leader)
+
+        self.assertContains(self.client.get(f"/members/{self.member.pk}/"), "Mia Mover")
+
+
+class LeaderSectionHistoryTests(TestCase):
+    def setUp(self):
+        self.alto = make_member("Alice Alto", "alto")
+        self.tenor = make_member("Tom Tenor", "tenor")
+        self.client.force_login(Account.objects.create_user("alto@example.com", sections=["alto"]))
+
+    def test_ro3_leader_sees_both_histories_for_their_own_member(self):
+        self.assertContains(self.client.get(f"/members/{self.alto.pk}/history/"), "Alice Alto")
+
+    def test_ro3_leader_gets_not_found_for_another_sections_history(self):
+        self.assertEqual(self.client.get(f"/members/{self.tenor.pk}/history/").status_code, 404)
+
+    def test_ro3_leader_gets_not_found_for_both_change_pages_on_get_and_post(self):
+        for member in [self.alto, self.tenor]:
+            for path, data in [
+                ("section", {"section": "bass", "effective_on": today().isoformat()}),
+                ("praise-team", {"praise_team": "yes", "effective_on": today().isoformat()}),
+            ]:
+                url = f"/members/{member.pk}/{path}/"
+                self.assertEqual(self.client.get(url).status_code, 404, url)
+                self.assertEqual(self.client.post(url, data).status_code, 404, url)
+        self.assertEqual(self.alto.current_section, "alto")
+        self.assertFalse(self.alto.current_praise_team)
+
+    def test_ro3_leader_sees_no_change_controls(self):
+        detail = self.client.get(f"/members/{self.alto.pk}/")
+
+        self.assertNotContains(detail, f'href="/members/{self.alto.pk}/section/"')
+        self.assertNotContains(detail, f'href="/members/{self.alto.pk}/praise-team/"')
+
+
+class AddAndEditSectionTests(TestCase):
+    def setUp(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+
+    def test_ro1_adding_a_member_saves_their_first_section_and_flag_dated_today(self):
+        self.client.post("/members/new/", {"name": "Ada", "initial_section": "tenor", "initial_praise_team": "on"})
+
+        member = Member.objects.get()
+        section_change, flag_change = member.section_changes.get(), member.praise_team_changes.get()
+        self.assertEqual((section_change.section, section_change.effective_on), ("tenor", today()))
+        self.assertEqual((flag_change.praise_team, flag_change.effective_on), (True, today()))
+
+    def test_ro1_the_praise_team_box_defaults_to_no(self):
+        self.client.post("/members/new/", {"name": "Ada", "initial_section": "tenor"})
+
+        self.assertFalse(Member.objects.get().current_praise_team)
+        self.assertEqual(Member.objects.get().praise_team_changes.count(), 1)
+
+    def test_ro1_a_section_is_required_when_adding(self):
+        response = self.client.post("/members/new/", {"name": "Ada"})
+
+        self.assertContains(response, "This field is required")
+        self.assertFalse(Member.objects.exists())
+
+    def test_ro1_editing_a_member_asks_for_neither_and_changes_neither(self):
+        member = make_member("Ada", "bass", praise_team=True)
+
+        page = self.client.get(f"/members/{member.pk}/edit/")
+        response = self.client.post(f"/members/{member.pk}/edit/", {"name": "Ada L"})
+
+        self.assertNotContains(page, "initial_section")
+        self.assertNotContains(page, "initial_praise_team")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual((member.section_changes.count(), member.praise_team_changes.count()), (1, 1))
+        self.assertEqual((member.current_section, member.current_praise_team), ("bass", True))
+
+    def test_ro1_a_member_is_not_saved_when_the_section_is_invalid(self):
+        response = self.client.post("/members/new/", {"name": "Ada", "initial_section": "descant"})
+
+        self.assertContains(response, "Select a valid choice")
+        self.assertFalse(Member.objects.exists())
+
+
+class SectionSignedOutTests(TestCase):
+    def test_signed_out_visitors_are_sent_to_sign_in_from_the_new_member_pages(self):
+        member = make_member("Ada", "bass")
+
+        for suffix in ["section/", "praise-team/", "history/"]:
+            response = self.client.get(f"/members/{member.pk}/{suffix}")
+            self.assertEqual(response.status_code, 302, suffix)
+            self.assertTrue(response["Location"].startswith("/signin/"), suffix)
+
+
+class SectionAdminTests(TestCase):
+    """RO-6: section and Praise Team changes are reached in the Django admin only through a member."""
+
+    def setUp(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+        self.member = make_member("Grace Hopper", "alto", since=date(2026, 1, 5))
+        SectionChange.objects.create(member=self.member, section="soprano", effective_on=date(2026, 6, 1))
+
+    def test_ro6_the_member_page_links_to_each_history(self):
+        response = self.client.get(f"/admin/roster/member/{self.member.pk}/change/")
+
+        self.assertContains(response, "2 section changes")
+        self.assertContains(response, "1 Praise Team change")
+        self.assertContains(response, f"/admin/roster/sectionchange/?member__id__exact={self.member.pk}")
+
+    def test_ro6_the_hidden_pages_list_only_that_members_rows(self):
+        other = make_member("Ada Lovelace", "bass", since=date(2026, 3, 3))
+
+        response = self.client.get(f"/admin/roster/sectionchange/?member__id__exact={self.member.pk}")
+
+        self.assertContains(response, "June 1, 2026")
+        self.assertNotContains(response, "March 3, 2026")
+        self.assertNotEqual(other.pk, self.member.pk)
+
+    def test_ro6_opening_either_page_without_a_member_goes_to_the_members_list(self):
+        for model in ["sectionchange", "praiseteamchange"]:
+            response = self.client.get(f"/admin/roster/{model}/")
+
+            self.assertRedirects(response, "/admin/roster/member/", fetch_redirect_response=False)
+
+    def test_ro6_the_new_pages_are_not_listed_on_the_admin_home_page(self):
+        response = self.client.get("/admin/")
+
+        self.assertNotContains(response, "/admin/roster/sectionchange/")
+        self.assertNotContains(response, "/admin/roster/praiseteamchange/")
+
+    def test_ro6_the_django_admin_applies_the_must_change_rule_and_the_future_rule(self):
+        same = self.client.post(
+            "/admin/roster/sectionchange/add/",
+            {"member": self.member.pk, "section": "soprano", "effective_on": "2026-07-01"},
+        )
+        future = self.client.post(
+            "/admin/roster/praiseteamchange/add/",
+            {"member": self.member.pk, "praise_team": "on", "effective_on": (today() + timedelta(days=1)).isoformat()},
+        )
+
+        self.assertContains(same, "already in Soprano")
+        self.assertContains(future, "be in the future")
+
+    def test_ro6_a_member_added_in_the_django_admin_gets_all_three_first_rows(self):
+        response = self.client.post(
+            "/admin/roster/member/add/",
+            {"name": "New Singer", "initial_section": "tenor", "initial_praise_team": "on", "phone": "", "email": "", "notes": ""},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        member = Member.objects.get(name="New Singer")
+        self.assertEqual((member.current_status, member.current_section, member.current_praise_team), ("active", "tenor", True))
+        self.assertEqual(member.section_changes.get().effective_on, today())
+
+    def test_ro6_the_admin_add_form_requires_a_section(self):
+        response = self.client.post("/admin/roster/member/add/", {"name": "New Singer", "phone": "", "email": "", "notes": ""})
+
+        self.assertContains(response, "This field is required")
+        self.assertFalse(Member.objects.filter(name="New Singer").exists())
+
+    def test_ro6_editing_a_member_in_the_django_admin_adds_no_section_or_flag_change(self):
+        self.client.post(
+            f"/admin/roster/member/{self.member.pk}/change/", {"name": "Grace H", "phone": "", "email": "", "notes": ""}
+        )
+
+        self.assertEqual((self.member.section_changes.count(), self.member.praise_team_changes.count()), (2, 1))
+        self.assertEqual(Member.objects.get(pk=self.member.pk).name, "Grace H")
+
+
+class MemberListSectionTests(TestCase):
+    def test_ro6_the_list_reads_sections_and_flags_in_a_fixed_number_of_queries(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+        for i in range(2):
+            make_member(f"M{i}", "alto")
+        with CaptureQueriesContext(connection) as few:
+            self.client.get("/members/")
+        for i in range(2, 8):
+            member = make_member(f"M{i}", "bass", praise_team=True)
+            SectionChange.objects.create(member=member, section="tenor", effective_on=date(2026, 2, 1))
+        with CaptureQueriesContext(connection) as many:
+            self.client.get("/members/")
+
+        self.assertEqual(len(few), len(many))
+
+    def test_ro6_the_detail_page_reads_each_history_once(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+        member = make_member("Ada", "bass")
+        SectionChange.objects.create(member=member, section="alto", effective_on=date(2026, 2, 1))
+
+        with CaptureQueriesContext(connection) as queries:
+            self.client.get(f"/members/{member.pk}/")
+
+        for table in ["roster_sectionchange", "roster_praiseteamchange"]:
+            self.assertEqual(len([q for q in queries if table in q["sql"]]), 1, table)
