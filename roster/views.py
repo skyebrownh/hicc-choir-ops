@@ -3,13 +3,16 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.models import Role, Section
 from accounts.permissions import role_required
-from roster.forms import MemberForm, PraiseTeamChangeForm, SectionChangeForm, StatusChangeForm
+from roster.forms import MemberFilterForm, MemberForm, PraiseTeamChangeForm, SectionChangeForm, StatusChangeForm
 from roster.models import Member, PraiseTeamChange, SectionChange, Status, StatusChange
 
 
 def member_list(request):
     """RO-3, RO-6: admins see everyone, section leaders their own sections. Members sit under the section they are in now."""
     members = Member.objects.visible_to(request.user).with_current_status()
+    # RO-4: narrow by the filters in the query string, before sorting and grouping.
+    filters = MemberFilterForm(request.GET, request.user)
+    members = filters.filter(members)
     # RO-2: in each section, Active first, then On Break, then Inactive, then by name.
     # Rank follows the order the statuses are declared in `Status` (Active, On Break, Inactive).
     status_rank = {status: rank for rank, status in enumerate(Status.values)}
@@ -24,7 +27,7 @@ def member_list(request):
     return render(
         request,
         "roster/member_list.html",
-        {"groups": [g for g in groups if g["members"]], "has_members": bool(members)},
+        {"groups": [g for g in groups if g["members"]], "has_members": bool(members), "filters": filters},
     )
 
 

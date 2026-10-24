@@ -23,7 +23,12 @@ BASIC_MEMBERS = [
     ("Ben Carter", "bass", False),
     ("Bill Dixon", "bass", True),
     ("Bob Ellis", "bass", False),
+    # RO-4: one on a break and one inactive, so the roster's status filter has something to find.
+    ("Beth Rowe", "alto", False),
+    ("Ian Stone", "tenor", False),
 ]
+# RO-4: everyone else is Active.
+OTHER_STATUSES = {"Beth Rowe": "on_break", "Ian Stone": "inactive"}
 
 
 def seed_basic():
@@ -44,13 +49,13 @@ def seed_basic():
             PraiseTeamChange.objects.create(member=member, praise_team=True, effective_on=today - timedelta(days=30))
         else:
             PraiseTeamChange.objects.create(member=member, praise_team=praise_team, effective_on=today)
-        # RO-2: everyone is Active from today, like a member added or migrated today. Amy Walker has a break behind her, so the history list has
+        # RO-2: everyone starts today (Active, except the two in OTHER_STATUSES), like a member added or migrated today. Amy Walker has a break behind her, so the history list has
         # something to show: Active, then On Break, then back to Active.
         if name == "Amy Walker":
             for status, days_ago in [("active", 90), ("on_break", 60), ("active", 0)]:
                 StatusChange.objects.create(member=member, status=status, effective_on=today - timedelta(days=days_ago))
         else:
-            StatusChange.objects.create(member=member, status="active", effective_on=today)
+            StatusChange.objects.create(member=member, status=OTHER_STATUSES.get(name, "active"), effective_on=today)
     # For trying the section-leader view by hand. The sign-in code prints in the server console.
     Account.objects.create_user("alto.leader@example.com", sections=["alto"])
     Account.objects.create_user("tenor.leader@example.com", sections=["tenor", "bass"])

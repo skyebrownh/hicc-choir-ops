@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Members · HICC Choir Ops{% endblock %}
 {% block content %}
 <div class="flex items-center justify-between gap-4">
@@ -7,6 +8,25 @@
   <a href="{% url 'member-add' %}" class="btn-primary w-auto shrink-0">Add member</a>
   {% endif %}
 </div>
+{# RO-4: GET, so a filtered list has its own URL. The script submits it on change; <noscript> keeps it usable without JavaScript. #}
+<form method="get" id="member-filters" class="mt-4 grid gap-4 sm:grid-cols-3">
+  {% for field in filters %}
+  <div>
+    <label for="{{ field.id_for_label }}" class="label">{{ field.label }}</label>
+    <div class="mt-1">{{ field }}</div>
+  </div>
+  {% endfor %}
+  <noscript><button type="submit" class="btn-primary">Apply</button></noscript>
+</form>
+{% if filters.changed_from_default %}
+<a href="{% url 'member-list' %}" class="link">Reset</a>
+{% endif %}
+<script src="{% static 'members-filter.js' %}" defer></script>
+{# RO-4: said out loud so nobody wonders where the Inactive members went. #}
+{% if filters.hiding_inactive %}
+<p class="empty-state mt-4">Showing Active and On Break members. Inactive members are hidden.
+  <a href="{% url 'member-list' %}?{{ filters.everyone_query }}" class="link">Show everyone</a></p>
+{% endif %}
 {% if has_members %}
 {% for group in groups %}
 <h2 class="mt-6 font-semibold text-gray-900">{{ group.label }}</h2>
@@ -26,6 +46,10 @@
 </ul>
 {% endfor %}
 {% else %}
+{% if filters.changed_from_default %}
+<p class="empty-state mt-6">No members match these filters.</p>
+{% else %}
 <p class="empty-state mt-6">No members to show.</p>
+{% endif %}
 {% endif %}
 {% endblock %}

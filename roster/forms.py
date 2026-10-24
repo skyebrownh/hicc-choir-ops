@@ -1,4 +1,7 @@
+from urllib.parse import urlencode
+
 from django import forms
+from django.db.models import Q
 from django.utils import timezone
 
 from accounts.models import Section
@@ -95,3 +98,79 @@ class PraiseTeamChangeForm(DatedChangeForm):
         model = PraiseTeamChange
         fields = ["praise_team", "effective_on"]
         labels = {"effective_on": "Starting on"}
+
+
+class MemberFilterForm(forms.Form):
+    """RO-4: the roster's filters, read from the page's query string (GET), never saved.
+
+    A value that isn't one of the choices is dropped by validation, so a mistyped or
+    out-of-reach value just means "no filter" on that field instead of an error page.
+    """
+
+    # RO-4: "" is every field's default. Status's default hides Inactive members, because that group can grow large.
+    STATUS_CHOICES = [
+        ("", "Active and On Break"),
+        (Status.ACTIVE.value, "Active"),
+        (Status.ON_BREAK.value, "On Break"),
+        (Status.INACTIVE.value, "Inactive"),
+        ("all", "Everyone"),
+    ]
+
+    section = forms.ChoiceField(required=False, label="Section")
+    status = forms.ChoiceField(choices=STATUS_CHOICES, required=False, label="Status")
+    praise_team = forms.ChoiceField(
+        choices=[("", "Any"), ("yes", "On the Praise Team"), ("no", "Not on the Praise Team")],
+        required=False,
+        label="Praise Team",
+    )
+
+    def __init__(self, data, account):
+        super().__init__(data)
+        # RO-3: offer only the sections this person can see. A leader with one section has nothing to pick,
+        # so the field goes (the list is already limited to that section by `visible_to`).
+        sections = list(Section.choices) if account.is_admin else [c for c in Section.choices if c[0] in account.sections]
+        if len(sections) > 1:
+            self.fields["section"].choices = [("", "All sections"), *sections]
+        else:
+            del self.fields["section"]
+        for field in self.fields.values():
+            field.widget.attrs["class"] = INPUT_CLASSES
+
+    def _value(self, name):
+        # RO-4: invalid values are missing from cleaned_data, which reads as the default.
+        self.is_valid()
+        return self.cleaned_data.get(name, "")
+
+    @property
+    def hiding_inactive(self):
+        # RO-4: true when the default status choice is in force, so the page can say Inactive members are hidden.
+        return self._value("status") == ""
+
+    @property
+    def changed_from_default(self):
+        # RO-4: true once any filter differs from the default view, so the page offers "Reset".
+        return any(self._value(name) for name in self.fields)
+
+    def everyone_query(self):
+        """RO-4: the query string for "Show everyone": the same filters, with every status."""
+        chosen = {name: self._value(name) for name in ("section", "praise_team") if self._value(name)}
+        return urlencode({**chosen, "status": "all"})
+
+    def filter(self, members):
+        """RO-4: narrows a queryset that already has `status_now` (see `with_current_status`)."""
+        if self._value("section"):
+            members = members.filter(section_now=self._value("section"))
+        praise_team = self._value("praise_team")
+        if praise_team == "yes":
+            members = members.filter(praise_team_now=True)
+        elif praise_team == "no":
+            # RO-6: a member with no Praise Team change at all counts as not on it (see Member.current_praise_team).
+            members = members.filter(Q(praise_team_now=False) | Q(praise_team_now__isnull=True))
+        status = self._value("status")
+        if status == "":
+            # RO-2: a member with no status at all (not expected in the app) stays visible rather than vanishing:
+            # in SQL, NULL is never "not equal" to anything, so it needs asking for.
+            return members.filter(~Q(status_now=Status.INACTIVE) | Q(status_now__isnull=True))
+        if status != "all":
+            return members.filter(status_now=status)
+        return members
