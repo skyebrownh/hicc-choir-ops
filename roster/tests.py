@@ -181,8 +181,13 @@ class LeaderStatusTests(TestCase):
     def test_ro3_leader_sees_current_status_and_history_for_their_own_member(self):
         response = self.client.get(f"/members/{self.alto.pk}/")
 
-        for shown in ["On Break", "Status history", "Jan 5, 2026", "Jun 1, 2026"]:
-            self.assertContains(response, shown)
+        self.assertContains(response, "On Break</strong> since Jun 1, 2026. Before that: Active.")
+        history = self.client.get(f"/members/{self.alto.pk}/status-history/")
+        for shown in ["Jan 5, 2026", "Jun 1, 2026"]:
+            self.assertContains(history, shown)
+
+    def test_ro3_leader_gets_not_found_for_another_sections_full_history(self):
+        self.assertEqual(self.client.get(f"/members/{self.tenor.pk}/status-history/").status_code, 404)
 
     def test_ro3_leader_gets_not_found_for_the_change_status_page_on_get_and_post(self):
         for member in [self.alto, self.tenor]:
@@ -200,7 +205,7 @@ class SignedOutTests(TestCase):
     def test_signed_out_visitors_are_sent_to_sign_in_from_every_member_page(self):
         member = Member.objects.create(name="Ada", section="bass")
 
-        for url in ["/members/", "/members/new/", f"/members/{member.pk}/", f"/members/{member.pk}/edit/", f"/members/{member.pk}/status/"]:
+        for url in ["/members/", "/members/new/", f"/members/{member.pk}/", f"/members/{member.pk}/edit/", f"/members/{member.pk}/status/", f"/members/{member.pk}/status-history/"]:
             response = self.client.get(url)
             self.assertEqual(response.status_code, 302, url)
             self.assertTrue(response["Location"].startswith("/signin/"), url)
@@ -234,17 +239,35 @@ class StatusHistoryTests(TestCase):
         self.client.force_login(Account.objects.create_superuser("admin@example.com"))
         self.member = Member.objects.create(name="Ada", section="bass")
 
-    def test_ro2_detail_shows_the_current_status_and_history_newest_first(self):
+    def test_ro2_detail_describes_the_last_change_in_a_sentence(self):
         StatusChange.objects.create(member=self.member, status="active", effective_on=date(2026, 1, 5))
         StatusChange.objects.create(member=self.member, status="on_break", effective_on=date(2026, 6, 1))
 
         response = self.client.get(f"/members/{self.member.pk}/")
 
         self.assertEqual(self.member.current_status, "on_break")
-        self.assertContains(response, "Status history")
-        self.assertContains(response, "On Break")
+        self.assertContains(response, "On Break</strong> since Jun 1, 2026. Before that: Active.")
+        # The older date lives on the full-history page, not here.
+        self.assertNotContains(response, "Jan 5, 2026")
+
+    def test_ro2_a_member_with_one_status_has_no_before_that(self):
+        StatusChange.objects.create(member=self.member, status="active", effective_on=date(2026, 1, 5))
+
+        response = self.client.get(f"/members/{self.member.pk}/")
+
+        self.assertContains(response, "Active</strong> since Jan 5, 2026.")
+        self.assertNotContains(response, "Before that")
+
+    def test_ro2_full_history_lists_every_change_newest_date_first(self):
+        for status, day in [("active", date(2026, 1, 5)), ("on_break", date(2026, 6, 1)), ("active", date(2026, 8, 2))]:
+            StatusChange.objects.create(member=self.member, status=status, effective_on=day)
+
+        response = self.client.get(f"/members/{self.member.pk}/status-history/")
+
         content = response.content.decode()
+        self.assertLess(content.index("Aug 2, 2026"), content.index("Jun 1, 2026"))
         self.assertLess(content.index("Jun 1, 2026"), content.index("Jan 5, 2026"))
+        self.assertContains(self.client.get(f"/members/{self.member.pk}/"), f"/members/{self.member.pk}/status-history/")
 
     def test_ro2_current_status_is_the_latest_by_date_not_the_last_entered(self):
         StatusChange.objects.create(member=self.member, status="on_break", effective_on=date(2026, 6, 1))

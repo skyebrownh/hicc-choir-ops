@@ -21,6 +21,14 @@ def member_detail(request, pk):
     return render(request, "roster/member_detail.html", {"member": member, "history": list(member.status_history())})
 
 
+def member_status_history(request, pk):
+    """RO-2, RO-3: the full list of status changes. Same visibility as the member's own page."""
+    member = get_object_or_404(Member.objects.visible_to(request.user), pk=pk)
+    return render(
+        request, "roster/status_history.html", {"member": member, "history": member.status_history()}
+    )
+
+
 @role_required(Role.ADMIN)
 def member_add(request):
     """RO-3: admins add members."""

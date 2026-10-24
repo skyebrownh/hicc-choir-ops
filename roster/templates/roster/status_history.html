@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Status history for {{ member.name }} · HICC Choir Ops{% endblock %}
+{% block content %}
+{# RO-2: every status change with its date, newest first. #}
+<a href="{% url 'member-detail' member.pk %}" class="link">← {{ member.name }}</a>
+<div class="card mt-2">
+  <h1 class="page-title">Status history for {{ member.name }}</h1>
+  <ul class="mt-4 divide-y divide-gray-200">
+    {% for change in history %}
+    <li class="flex min-h-11 items-center justify-between gap-3 py-2">
+      <span class="text-gray-900">{{ change.get_status_display }}</span>
+      <span class="muted">{{ change.effective_on|date:"M j, Y" }}</span>
+    </li>
+    {% empty %}
+    <li class="muted py-2">No status yet.</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}
