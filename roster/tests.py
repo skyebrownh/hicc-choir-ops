@@ -806,7 +806,8 @@ class ChangePraiseTeamTests(TestCase):
         self.assertTrue(self.member.current_praise_team)
         self.assertFalse(self.member.praise_team_on(date(2026, 5, 31)))
         detail = self.client.get(f"/members/{self.member.pk}/")
-        self.assertContains(detail, "On the Praise Team</strong> since Jun 1, 2026. Before that: Not on the Praise Team.")
+        self.assertContains(detail, "On the Praise Team</strong> since Jun 1, 2026.")
+        self.assertNotContains(detail, "Before that: Not on the Praise Team")
         self.assertContains(detail, "Praise Team</span>")
 
     def test_ro6_admin_takes_a_member_off_the_praise_team(self):
@@ -816,7 +817,18 @@ class ChangePraiseTeamTests(TestCase):
 
         self.assertFalse(self.member.current_praise_team)
         self.assertTrue(self.member.praise_team_on(date(2026, 8, 31)))
-        self.assertNotContains(self.client.get(f"/members/{self.member.pk}/"), "Praise Team</span>")
+        detail = self.client.get(f"/members/{self.member.pk}/")
+        self.assertNotContains(detail, "Praise Team</span>")
+        # Leaving is not shown as a sentence on the member page: only the history page records it.
+        self.assertNotContains(detail, "Praise Team</strong>")
+        self.assertNotContains(detail, "Not on the Praise Team")
+        self.assertContains(self.client.get(f"/members/{self.member.pk}/history/"), "Not on the Praise Team")
+
+    def test_ro6_a_member_who_rejoined_shows_the_latest_join_date(self):
+        for flag, day in [(True, date(2026, 3, 1)), (False, date(2026, 5, 1)), (True, date(2026, 8, 2))]:
+            PraiseTeamChange.objects.create(member=self.member, praise_team=flag, effective_on=day)
+
+        self.assertContains(self.client.get(f"/members/{self.member.pk}/"), "On the Praise Team</strong> since Aug 2, 2026.")
 
     def test_ro6_the_form_says_the_current_setting(self):
         self.assertContains(self.client.get(self.url), "Now not on the Praise Team.")

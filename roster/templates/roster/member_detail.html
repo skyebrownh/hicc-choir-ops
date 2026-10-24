@@ -27,10 +27,10 @@
     {% if section_history %}<strong>{{ section_history.0.get_section_display }}</strong> since {{ section_history.0.effective_on|date:"M j, Y" }}.{% if section_history.1 %} Before that: {{ section_history.1.get_section_display }}.{% endif %}
     {% else %}No section yet.{% endif %}
   </p>
-  <p class="mt-2 text-gray-900">
-    {% if praise_team_history %}<strong>{{ praise_team_history.0.get_praise_team_display }}</strong> since {{ praise_team_history.0.effective_on|date:"M j, Y" }}.{% if praise_team_history.1 %} Before that: {{ praise_team_history.1.get_praise_team_display }}.{% endif %}
-    {% else %}Not on the Praise Team.{% endif %}
-  </p>
+  {# RO-6: only members on the Praise Team get a line; leaving it is recorded on the history page, not here. #}
+  {% if praise_team_history.0.praise_team %}
+  <p class="mt-2 text-gray-900"><strong>{{ praise_team_history.0.get_praise_team_display }}</strong> since {{ praise_team_history.0.effective_on|date:"M j, Y" }}.</p>
+  {% endif %}
   <a href="{% url 'member-history' member.pk %}" class="link">See section and Praise Team history</a>
   {% if user.is_admin %}
   <a href="{% url 'member-status' member.pk %}" class="btn-secondary mt-6">Change status</a>
