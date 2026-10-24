@@ -14,13 +14,21 @@ class MemberForm(forms.ModelForm):
         fields = ["name", "phone", "email", "section", "praise_team", "notes"]
         labels = {"praise_team": "On the Praise Team"}
 
+    # RO-2: only on the add page. Left out means Active. Later changes go through StatusChangeForm, so editing
+    # a member never touches their status history.
+    initial_status = forms.ChoiceField(choices=Status.choices, initial=Status.ACTIVE, label="Status", required=False)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            del self.fields["initial_status"]
         for name, field in self.fields.items():
             if name == "praise_team":
                 field.widget.attrs["class"] = "size-6 accent-indigo-600"
             else:
                 field.widget.attrs["class"] = INPUT_CLASSES
+        if "initial_status" in self.fields:
+            self.fields["initial_status"].widget.attrs["class"] = INPUT_CLASSES
         self.fields["phone"].widget.attrs["autocomplete"] = "off"
         self.fields["notes"].widget.attrs["rows"] = 3
 

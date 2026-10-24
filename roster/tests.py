@@ -285,3 +285,41 @@ class ChangeStatusTests(TestCase):
 
         self.assertContains(response, "This field is required")
         self.assertEqual(self.member.status_changes.count(), 1)
+
+
+class InitialStatusTests(TestCase):
+    def setUp(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+
+    def test_ro2_a_new_member_defaults_to_active_dated_today(self):
+        self.client.post("/members/new/", {"name": "Ada", "section": "bass", "initial_status": "active"})
+
+        change = Member.objects.get().status_changes.get()
+        self.assertEqual((change.status, change.effective_on), ("active", today()))
+
+    def test_ro2_the_add_form_offers_status_with_active_selected(self):
+        response = self.client.get("/members/new/")
+
+        self.assertContains(response, "Status")
+        self.assertContains(response, '<option value="active" selected>')
+
+    def test_ro2_a_new_member_can_start_on_another_status(self):
+        self.client.post("/members/new/", {"name": "Ada", "section": "bass", "initial_status": "on_break"})
+
+        self.assertEqual(Member.objects.get().current_status, "on_break")
+
+    def test_ro2_a_member_is_not_saved_when_the_initial_status_is_invalid(self):
+        response = self.client.post("/members/new/", {"name": "Ada", "section": "bass", "initial_status": "retired"})
+
+        self.assertContains(response, "Select a valid choice")
+        self.assertFalse(Member.objects.exists())
+
+    def test_ro2_editing_a_member_does_not_add_a_status_change(self):
+        member = Member.objects.create(name="Ada", section="bass")
+        StatusChange.objects.create(member=member, status="on_break", effective_on=date(2026, 1, 5))
+
+        response = self.client.post(f"/members/{member.pk}/edit/", {"name": "Ada L", "section": "bass"})
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(member.status_changes.count(), 1)
+        self.assertNotContains(self.client.get(f"/members/{member.pk}/edit/"), "initial_status")

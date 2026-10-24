@@ -1,9 +1,11 @@
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 
 from accounts.models import Role
 from accounts.permissions import role_required
 from roster.forms import MemberForm, StatusChangeForm
-from roster.models import Member
+from roster.models import Member, Status, StatusChange
 
 
 def member_list(request):
@@ -23,7 +25,13 @@ def member_add(request):
     """RO-3: admins add members."""
     form = MemberForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        member = form.save()
+        # RO-2: the member and their first status are saved together or not at all.
+        with transaction.atomic():
+            member = form.save()
+            StatusChange.objects.create(
+                member=member, status=form.cleaned_data["initial_status"] or Status.ACTIVE,
+                effective_on=timezone.localdate(),
+            )
         return redirect("member-detail", pk=member.pk)
     return render(request, "roster/member_form.html", {"form": form, "title": "Add a member"})
 
