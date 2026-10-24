@@ -1,6 +1,7 @@
 """Members: adding, editing and viewing. Everything goes through the test client, signed in as a role."""
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone as dt_timezone
+from unittest import mock
 
 from django.db import connection
 from django.test import TestCase
@@ -313,6 +314,40 @@ class ChangeStatusTests(TestCase):
 
         self.assertContains(response, "This field is required")
         self.assertEqual(self.member.status_changes.count(), 1)
+
+
+class EasternTimeTests(TestCase):
+    """RO-2: "today" is the US Eastern date, not the server's UTC date."""
+
+    # 03:30 UTC on Oct 25 is 11:30pm on Oct 24 in New York, so the two dates differ.
+    LATE_EVENING = datetime(2026, 10, 25, 3, 30, tzinfo=dt_timezone.utc)
+
+    def setUp(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+        self.member = Member.objects.create(name="Ada", section="bass")
+        self.url = f"/members/{self.member.pk}/status/"
+        patcher = mock.patch("django.utils.timezone.now", return_value=self.LATE_EVENING)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_ro2_the_change_form_defaults_to_the_eastern_date(self):
+        self.assertContains(self.client.get(self.url), 'value="2026-10-24"')
+
+    def test_ro2_the_utc_date_counts_as_the_future_in_eastern_time(self):
+        response = self.client.post(self.url, {"status": "on_break", "effective_on": "2026-10-25"})
+
+        self.assertContains(response, "be in the future")
+        self.assertFalse(self.member.status_changes.exists())
+
+    def test_ro2_the_eastern_date_is_accepted(self):
+        self.client.post(self.url, {"status": "on_break", "effective_on": "2026-10-24"})
+
+        self.assertEqual(self.member.status_changes.get().effective_on, date(2026, 10, 24))
+
+    def test_ro2_a_new_member_starts_on_the_eastern_date(self):
+        self.client.post("/members/new/", {"name": "Grace", "section": "alto"})
+
+        self.assertEqual(Member.objects.get(name="Grace").status_changes.get().effective_on, date(2026, 10, 24))
 
 
 class InitialStatusTests(TestCase):
