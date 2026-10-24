@@ -698,7 +698,7 @@ class MemberListStatusTests(TestCase):
         self.add("Ben OnBreak", "alto", "active", "on_break")
         self.add("Abe Active", "alto", "active")
 
-        content = self.client.get("/members/").content.decode()
+        content = self.client.get("/members/?status=all").content.decode()
 
         names = ["Abe Active", "Zed Active", "Ben OnBreak", "Amy Inactive"]
         positions = [content.index(name) for name in names]
@@ -734,6 +734,30 @@ class MemberListStatusTests(TestCase):
             self.client.get("/members/")
 
         self.assertEqual(len(few), len(many))
+
+
+class MemberListFilterTests(TestCase):
+    """RO-4: the roster can be filtered by section, status and Praise Team."""
+
+    def setUp(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+
+    def add(self, name, section, status="active", praise_team=False):
+        member = make_member(name=name, section=section, praise_team=praise_team)
+        StatusChange.objects.create(member=member, status=status, effective_on=date(2026, 1, 1))
+        return member
+
+    def test_ro4_with_no_filter_inactive_members_are_hidden_and_the_list_says_so(self):
+        self.add("Ada Active", "alto")
+        self.add("Ben Break", "alto", "on_break")
+        self.add("Ivy Inactive", "alto", "inactive")
+
+        response = self.client.get("/members/")
+
+        self.assertContains(response, "Ada Active")
+        self.assertContains(response, "Ben Break")
+        self.assertNotContains(response, "Ivy Inactive")
+        self.assertContains(response, "Inactive members are hidden")
 
 
 class ChangeSectionTests(TestCase):

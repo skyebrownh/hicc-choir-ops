@@ -1,4 +1,5 @@
 from django import forms
+from django.db.models import Q
 from django.utils import timezone
 
 from accounts.models import Section
@@ -95,3 +96,48 @@ class PraiseTeamChangeForm(DatedChangeForm):
         model = PraiseTeamChange
         fields = ["praise_team", "effective_on"]
         labels = {"effective_on": "Starting on"}
+
+
+class MemberFilterForm(forms.Form):
+    """RO-4: the roster's filters, read from the page's query string (GET), never saved.
+
+    A value that isn't one of the choices is dropped by validation, so a mistyped or
+    out-of-reach value just means "no filter" on that field instead of an error page.
+    """
+
+    # "" is every field's default. Status's default hides Inactive members, because that group can grow large.
+    STATUS_CHOICES = [
+        ("", "Active and On Break"),
+        (Status.ACTIVE.value, "Active"),
+        (Status.ON_BREAK.value, "On Break"),
+        (Status.INACTIVE.value, "Inactive"),
+        ("all", "Everyone"),
+    ]
+
+    status = forms.ChoiceField(choices=STATUS_CHOICES, required=False, label="Status")
+
+    def __init__(self, data, account):
+        super().__init__(data)
+        for field in self.fields.values():
+            field.widget.attrs["class"] = INPUT_CLASSES
+
+    def _value(self, name):
+        # Invalid values are missing from cleaned_data, which reads as the default.
+        self.is_valid()
+        return self.cleaned_data.get(name, "")
+
+    @property
+    def hiding_inactive(self):
+        # RO-4: true when the default status choice is in force, so the page can say Inactive members are hidden.
+        return self._value("status") == ""
+
+    def filter(self, members):
+        """RO-4: narrows a queryset that already has `status_now` (see `with_current_status`)."""
+        status = self._value("status")
+        if status == "":
+            # A member with no status at all (not expected in the app) stays visible rather than vanishing:
+            # in SQL, NULL is never "not equal" to anything, so it needs asking for.
+            return members.filter(~Q(status_now=Status.INACTIVE) | Q(status_now__isnull=True))
+        if status != "all":
+            return members.filter(status_now=status)
+        return members
