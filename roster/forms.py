@@ -53,11 +53,3 @@ class StatusChangeForm(forms.ModelForm):
         # (Set on `initial`, not the field: a form built on an instance starts from the instance's empty date.)
         if self.initial.get("effective_on") is None:
             self.initial["effective_on"] = timezone.localdate()
-
-    def clean_effective_on(self):
-        # RO-2: a past or today's date only. There is deliberately no same-date check:
-        # two changes on one date are allowed and the one entered last counts.
-        value = self.cleaned_data["effective_on"]
-        if value > timezone.localdate():
-            raise forms.ValidationError("The date can't be in the future.")
-        return value

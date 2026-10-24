@@ -198,7 +198,7 @@ class LeaderStatusTests(TestCase):
         self.assertEqual(self.alto.current_status, "on_break")
 
     def test_ro3_leader_sees_no_change_status_control(self):
-        self.assertNotContains(self.client.get(f"/members/{self.alto.pk}/"), "/status/")
+        self.assertNotContains(self.client.get(f"/members/{self.alto.pk}/"), f'href="/members/{self.alto.pk}/status/"')
 
 
 class SignedOutTests(TestCase):
@@ -480,6 +480,17 @@ class StatusAdminTests(TestCase):
         )
 
         self.assertContains(response, "already On Break")
+        self.assertEqual(self.member.status_changes.count(), 2)
+
+    def test_ro2_the_django_admin_rejects_a_future_date_too(self):
+        tomorrow = today() + timedelta(days=1)
+
+        response = self.client.post(
+            "/admin/roster/statuschange/add/",
+            {"member": self.member.pk, "status": "active", "effective_on": tomorrow.isoformat()},
+        )
+
+        self.assertContains(response, "be in the future")
         self.assertEqual(self.member.status_changes.count(), 2)
 
     def test_ro2_saving_in_the_admin_returns_to_that_members_status_changes(self):

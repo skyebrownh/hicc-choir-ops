@@ -12,6 +12,7 @@ def member_list(request):
     """RO-3: admins see everyone, section leaders their own sections."""
     members = Member.objects.visible_to(request.user).with_current_status()
     # RO-2: in each section, Active first, then On Break, then Inactive, then by name.
+    # Rank follows the order the statuses are declared in `Status` (Active, On Break, Inactive).
     status_rank = {status: rank for rank, status in enumerate(Status.values)}
     members = sorted(members, key=lambda m: (status_rank.get(m.status_now, len(status_rank)), m.name.lower()))
     for member in members:

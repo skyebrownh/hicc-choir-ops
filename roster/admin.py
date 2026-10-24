@@ -24,6 +24,7 @@ class StatusChangeAdmin(ModelAdmin):
         return False
 
     def changelist_view(self, request, extra_context=None):
+        # RO-2: no member given means someone typed the address; send them to pick a member.
         if "member__id__exact" not in request.GET:
             return redirect(reverse("admin:roster_member_changelist"))
         return super().changelist_view(request, extra_context)

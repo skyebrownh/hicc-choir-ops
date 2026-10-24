@@ -1,11 +1,13 @@
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 from django.utils.formats import date_format as _date_format
 
 from accounts.models import Section
 
 
 def date_format(value):
+    # RO-2: one date style ("Jun 1, 2026") for the messages that name a date.
     return _date_format(value, "M j, Y")
 
 
@@ -90,6 +92,10 @@ class StatusChange(models.Model):
         super().clean()
         if not self.member_id or not self.effective_on or not self.status:
             return  # Other field errors are reported already.
+        # RO-2: a past or today's date only, in US Eastern time. A future change would
+        # otherwise become "current" before its date arrives.
+        if self.effective_on > timezone.localdate():
+            raise ValidationError({"effective_on": "The date can't be in the future."})
         # Sort key mirrors the history order: by date, then by when it was entered.
         # A row not saved yet counts as entered last, so it follows same-date rows.
         others = sorted(
