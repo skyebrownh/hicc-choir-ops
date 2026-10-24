@@ -162,3 +162,13 @@ class HeaderLinkTests(TestCase):
             response = self.client.get("/members/")
 
             self.assertContains(response, 'href="/members/"', msg_prefix=account.email)
+
+
+class MemberAdminTests(TestCase):
+    def test_ro3_admin_can_see_members_in_the_django_admin(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+        Member.objects.create(name="Grace Hopper", section="alto")
+
+        response = self.client.get("/admin/roster/member/")
+
+        self.assertContains(response, "Grace Hopper")
