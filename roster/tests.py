@@ -78,6 +78,14 @@ class MemberTests(TestCase):
         self.assertContains(response, "Ada")
         self.assertContains(response, "Grace")
 
+    def test_ro3_admin_opens_the_detail_page_of_a_member_in_any_section(self):
+        for section in ["soprano", "alto", "tenor", "bass"]:
+            member = Member.objects.create(name=f"Member {section}", section=section)
+
+            response = self.client.get(f"/members/{member.pk}/")
+
+            self.assertContains(response, f"Member {section}")
+
 
 class SectionLeaderTests(TestCase):
     def setUp(self):
