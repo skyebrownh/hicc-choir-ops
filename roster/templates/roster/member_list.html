@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Members · HICC Choir Ops{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between gap-4">
+  <h1 class="page-title">Members</h1>
+  {% if user.is_admin %}
+  <a href="{% url 'member-add' %}" class="btn-primary w-auto shrink-0">Add member</a>
+  {% endif %}
+</div>
+{% if members %}
+<ul class="mt-6 divide-y divide-gray-200 overflow-hidden rounded-lg bg-white shadow-sm">
+  {% for member in members %}
+  <li>
+    <a href="{% url 'member-detail' member.pk %}" class="flex min-h-14 items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50">
+      <span class="font-medium text-gray-900">{{ member.name }}</span>
+      <span class="flex flex-wrap justify-end gap-2">
+        <span class="badge">{{ member.get_section_display }}</span>
+        {% if member.praise_team %}<span class="badge-accent">Praise Team</span>{% endif %}
+      </span>
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty-state mt-6">No members to show.</p>
+{% endif %}
+{% endblock %}

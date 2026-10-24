@@ -4,21 +4,33 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
   <title>{% block title %}HICC Choir Ops{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'app.css' %}">
 </head>
 {# 16px text everywhere (NFR): it also stops iPhone Safari zooming into inputs. #}
-<body class="bg-gray-50 text-base text-gray-900">
+<body class="min-h-screen bg-gray-100 text-base text-gray-900 antialiased">
   {% if user.is_authenticated %}
-  {# AC-4: a form, not a link, because signing out changes state and so must be a POST. #}
-  <header class="mx-auto flex max-w-md justify-end px-4 pt-2">
-    <form method="post" action="{% url 'sign-out' %}">
-      {% csrf_token %}
-      <button type="submit" class="min-h-11 px-3 font-medium text-blue-800 underline">Sign out</button>
-    </form>
+  <header class="bg-white shadow-sm">
+    <div class="mx-auto flex max-w-2xl items-center justify-between px-4">
+      <a href="{% url 'home' %}" class="flex min-h-11 items-center font-bold text-indigo-600">HICC Choir Ops</a>
+      {# AC-4: a form, not a link, because signing out changes state and so must be a POST. #}
+      <form method="post" action="{% url 'sign-out' %}">
+        {% csrf_token %}
+        <button type="submit" class="flex min-h-11 items-center px-1 font-medium text-gray-600 hover:text-gray-900">Sign out</button>
+      </form>
+    </div>
+    <nav aria-label="Main" class="mx-auto flex max-w-2xl gap-6 px-4">
+      {# The current section is marked by colour, a thicker underline and aria-current, not colour alone. #}
+      {% if request.path|slice:":9" == "/members/" %}
+      <a href="{% url 'member-list' %}" aria-current="page" class="flex min-h-11 items-center border-b-2 border-indigo-600 font-semibold text-indigo-600">Members</a>
+      {% else %}
+      <a href="{% url 'member-list' %}" class="flex min-h-11 items-center border-b-2 border-transparent font-medium text-gray-600 hover:text-gray-900">Members</a>
+      {% endif %}
+    </nav>
   </header>
   {% endif %}
-  <main class="mx-auto max-w-md p-4">
+  <main class="mx-auto max-w-2xl px-4 py-6 sm:py-10">
     {% block content %}{% endblock %}
   </main>
 </body>

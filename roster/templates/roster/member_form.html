@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · HICC Choir Ops{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-md">
+  <div class="card">
+    <h1 class="page-title">{{ title }}</h1>
+    <form method="post" class="mt-6 space-y-6">
+      {% csrf_token %}
+      {% for field in form %}{% include "components/_field.html" %}{% endfor %}
+      <button type="submit" class="btn-primary">Save</button>
+      <a href="{% if member %}{% url 'member-detail' member.pk %}{% else %}{% url 'member-list' %}{% endif %}" class="btn-secondary">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

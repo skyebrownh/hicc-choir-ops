@@ -22,7 +22,7 @@ A web app for the HICC choir's director, her assistant and section leaders: rost
 
 Three Django apps (modules): **accounts** (sign-in, roles), **roster** (members, status, section and Praise Team history, events, attendance, rates) and **songs** (songs, sets, stats, history import). Songs may depend on roster for leads; roster never depends on songs.
 
-The Django project package is `config/` (settings, URLs, the health-check views); `accounts`, `roster` and `songs` are added by their issues. Settings are read from environment variables (`SECRET_KEY` and `DATABASE_URL` are required; `DEBUG` is off unless `true`). There is one settings module and no staging (SPEC.md, Decisions): the environment alone switches behaviour.
+The Django project package is `config/` (settings, URLs, the health-check views, and the `seed <scenario>` command for local fake data; it is an installed app so Django finds that command); `accounts`, `roster` and `songs` are added by their issues. Settings are read from environment variables (`SECRET_KEY` and `DATABASE_URL` are required; `DEBUG` is off unless `true`). There is one settings module and no staging (SPEC.md, Decisions): the environment alone switches behaviour.
 
 Railway: the pre-deploy command, start command and health check path (`/health/`) are set in the Railway dashboard, not in a `railway.json`. README's Deploy section lists them.
 

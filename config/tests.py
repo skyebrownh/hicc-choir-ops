@@ -6,11 +6,12 @@ Everything goes through Django's test client, like a visitor or Railway would.
 import tempfile
 from unittest import mock
 
-from django.core.management import call_command
+from django.core.management import CommandError, call_command
 from django.db import OperationalError
 from django.test import SimpleTestCase, TestCase, override_settings
 
-from accounts.models import Account
+from accounts.models import Account, Role
+from roster.models import Member
 from config.env import allowed_hosts
 
 
@@ -86,3 +87,55 @@ class AllowedHostsTests(SimpleTestCase):
         self.assertIn("127.0.0.1", allowed_hosts(debug=True, extra=["app.example.com"]))
         self.assertNotIn("127.0.0.1", allowed_hosts(debug=False, extra=["app.example.com"]))
         self.assertIn("app.example.com", allowed_hosts(debug=False, extra=["app.example.com"]))
+
+
+@override_settings(DEBUG=True)
+class SeedTests(TestCase):
+    def test_seed_basic_creates_fake_members_in_every_section_and_two_leaders(self):
+        call_command("seed", "basic", verbosity=0)
+
+        self.assertGreaterEqual(Member.objects.count(), 12)
+        self.assertEqual(
+            set(Member.objects.values_list("section", flat=True)), {"soprano", "alto", "tenor", "bass"}
+        )
+        self.assertTrue(Member.objects.filter(praise_team=True).exists())
+        self.assertTrue(Member.objects.filter(praise_team=False).exists())
+        leaders = Account.objects.filter(role=Role.SECTION_LEADER)
+        self.assertEqual(sorted(leader.sections for leader in leaders), [["alto"], ["tenor", "bass"]])
+
+    def test_seed_keeps_admin_accounts_and_removes_other_accounts_and_members(self):
+        Account.objects.create_superuser("admin@example.com")
+        Account.objects.create_user("old-leader@example.com", sections=["alto"])
+        Member.objects.create(name="Old Member", section="alto")
+
+        call_command("seed", "basic", verbosity=0)
+
+        self.assertTrue(Account.objects.filter(email="admin@example.com", role=Role.ADMIN).exists())
+        self.assertFalse(Account.objects.filter(email="old-leader@example.com").exists())
+        self.assertFalse(Member.objects.filter(name="Old Member").exists())
+
+    def test_seed_twice_gives_the_same_result(self):
+        call_command("seed", "basic", verbosity=0)
+        first = (Member.objects.count(), Account.objects.count())
+
+        call_command("seed", "basic", verbosity=0)
+
+        self.assertEqual((Member.objects.count(), Account.objects.count()), first)
+
+    def test_seed_refuses_an_unknown_scenario_and_lists_the_known_ones(self):
+        Member.objects.create(name="Keep Me", section="alto")
+
+        with self.assertRaisesMessage(CommandError, "basic"):
+            call_command("seed", "nope", verbosity=0)
+
+        self.assertTrue(Member.objects.filter(name="Keep Me").exists())
+
+    @override_settings(DEBUG=False)
+    def test_seed_refuses_to_run_with_debug_off(self):
+        # Wiping data is only safe on a developer's machine, never in production.
+        Member.objects.create(name="Keep Me", section="alto")
+
+        with self.assertRaisesMessage(CommandError, "DEBUG"):
+            call_command("seed", "basic", verbosity=0)
+
+        self.assertTrue(Member.objects.filter(name="Keep Me").exists())

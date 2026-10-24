@@ -1,0 +1,10 @@
+{# One labelled form field with its errors. Every input has a visible label (NFR, Accessible). #}
+<div>
+  {% if field.field.widget.input_type == "checkbox" %}
+  <label class="flex min-h-11 items-center gap-3 font-medium text-gray-900">{{ field }} {{ field.label }}</label>
+  {% else %}
+  <label for="{{ field.id_for_label }}" class="label">{{ field.label }}</label>
+  <div class="mt-2">{{ field }}</div>
+  {% endif %}
+  {% for error in field.errors %}<p role="alert" class="field-error">{{ error }}</p>{% endfor %}
+</div>

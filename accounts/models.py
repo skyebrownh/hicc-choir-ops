@@ -35,7 +35,7 @@ class Account(AbstractBaseUser):
 
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=20, choices=Role.choices)
-    # Section leaders only; one or more. The link to a member is added by the roster (#8).
+    # Section leaders only; one or more. The link to a member is added with the account pages (#13).
     sections = ArrayField(
         models.CharField(max_length=10, choices=Section.choices),
         default=list,
