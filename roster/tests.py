@@ -167,11 +167,37 @@ class SectionLeaderTests(TestCase):
             self.assertNotContains(response, "/edit/")
 
 
+class LeaderStatusTests(TestCase):
+    def setUp(self):
+        self.alto = Member.objects.create(name="Alice Alto", section="alto")
+        self.tenor = Member.objects.create(name="Tom Tenor", section="tenor")
+        StatusChange.objects.create(member=self.alto, status="active", effective_on=date(2026, 1, 5))
+        StatusChange.objects.create(member=self.alto, status="on_break", effective_on=date(2026, 6, 1))
+        self.client.force_login(Account.objects.create_user("alto@example.com", sections=["alto"]))
+
+    def test_ro3_leader_sees_current_status_and_history_for_their_own_member(self):
+        response = self.client.get(f"/members/{self.alto.pk}/")
+
+        for shown in ["On Break", "Status history", "Jan 5, 2026", "Jun 1, 2026"]:
+            self.assertContains(response, shown)
+
+    def test_ro3_leader_gets_not_found_for_the_change_status_page_on_get_and_post(self):
+        for member in [self.alto, self.tenor]:
+            url = f"/members/{member.pk}/status/"
+            self.assertEqual(self.client.get(url).status_code, 404, url)
+            response = self.client.post(url, {"status": "inactive", "effective_on": today().isoformat()})
+            self.assertEqual(response.status_code, 404, url)
+        self.assertEqual(self.alto.current_status, "on_break")
+
+    def test_ro3_leader_sees_no_change_status_control(self):
+        self.assertNotContains(self.client.get(f"/members/{self.alto.pk}/"), "/status/")
+
+
 class SignedOutTests(TestCase):
     def test_signed_out_visitors_are_sent_to_sign_in_from_every_member_page(self):
         member = Member.objects.create(name="Ada", section="bass")
 
-        for url in ["/members/", "/members/new/", f"/members/{member.pk}/", f"/members/{member.pk}/edit/"]:
+        for url in ["/members/", "/members/new/", f"/members/{member.pk}/", f"/members/{member.pk}/edit/", f"/members/{member.pk}/status/"]:
             response = self.client.get(url)
             self.assertEqual(response.status_code, 302, url)
             self.assertTrue(response["Location"].startswith("/signin/"), url)
