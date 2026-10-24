@@ -432,15 +432,58 @@ class BackfillMigrationTests(TestCase):
 
 
 class StatusAdminTests(TestCase):
-    def test_ro2_admin_sees_a_members_status_changes_in_the_django_admin(self):
+    """RO-2: status changes are reached in the Django admin only through a member."""
+
+    def setUp(self):
         self.client.force_login(Account.objects.create_superuser("admin@example.com"))
-        member = Member.objects.create(name="Grace Hopper", section="alto")
-        StatusChange.objects.create(member=member, status="on_break", effective_on=date(2026, 6, 1))
+        self.member = Member.objects.create(name="Grace Hopper", section="alto")
+        self.other = Member.objects.create(name="Ada Lovelace", section="bass")
+        StatusChange.objects.create(member=self.member, status="active", effective_on=date(2026, 1, 5))
+        StatusChange.objects.create(member=self.member, status="on_break", effective_on=date(2026, 6, 1))
+        StatusChange.objects.create(member=self.other, status="inactive", effective_on=date(2026, 3, 3))
+        self.list_url = f"/admin/roster/statuschange/?member__id__exact={self.member.pk}"
 
-        response = self.client.get(f"/admin/roster/member/{member.pk}/change/")
+    def test_ro2_the_member_page_links_to_only_their_status_changes(self):
+        response = self.client.get(f"/admin/roster/member/{self.member.pk}/change/")
 
-        self.assertContains(response, "2026-06-01")
-        self.assertContains(response, 'value="on_break" selected')
+        self.assertContains(response, "2 status changes")
+        self.assertContains(response, f"member__id__exact={self.member.pk}")
+
+    def test_ro2_the_status_changes_page_lists_only_that_members_rows(self):
+        response = self.client.get(self.list_url)
+
+        self.assertContains(response, "June 1, 2026")
+        self.assertContains(response, "Jan. 5, 2026")
+        self.assertNotContains(response, "March 3, 2026")
+
+    def test_ro2_opening_the_status_changes_page_without_a_member_goes_to_the_members_list(self):
+        response = self.client.get("/admin/roster/statuschange/")
+
+        self.assertRedirects(response, "/admin/roster/member/", fetch_redirect_response=False)
+
+    def test_ro2_status_changes_are_not_listed_on_the_admin_home_page(self):
+        response = self.client.get("/admin/")
+
+        self.assertContains(response, "/admin/roster/member/")
+        self.assertNotContains(response, "/admin/roster/statuschange/")
+
+    def test_ro2_the_django_admin_applies_the_must_change_rule(self):
+        response = self.client.post(
+            "/admin/roster/statuschange/add/",
+            {"member": self.member.pk, "status": "on_break", "effective_on": "2026-07-01"},
+        )
+
+        self.assertContains(response, "already On Break")
+        self.assertEqual(self.member.status_changes.count(), 2)
+
+    def test_ro2_saving_in_the_admin_returns_to_that_members_status_changes(self):
+        response = self.client.post(
+            "/admin/roster/statuschange/add/",
+            {"member": self.member.pk, "status": "active", "effective_on": "2026-07-01"},
+        )
+
+        self.assertRedirects(response, self.list_url, fetch_redirect_response=False)
+        self.assertEqual(self.member.current_status, "active")
 
 
 class DetailQueryTests(TestCase):
