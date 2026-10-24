@@ -11,19 +11,21 @@ The choir director plans each week's songs and keeps track of about 35 choir mem
 
 ## Overview
 
-**In one line:** Roster, attendance and weekly song-set planning for the HICC choir.
+**In one line:** Roster, attendance and weekly song-set planning for the HICC choir, released in two steps: roster and attendance first (v1), then songs and sets (v2).
 
 **Today:** The member list is plain text with the assistant. Attendance isn't taken. Sets are worked out by the director and sent out by group text. Song history exists only in those texts.
 
-**Goal:** One mobile-friendly place where section leaders mark attendance and see who needs a follow-up, and where the director plans sets with each song's history, leads and stats in front of her.
+**Goal:** One mobile-friendly place where section leaders mark attendance and see who needs a follow-up (v1), and where the director plans sets with each song's history, leads and stats in front of her (v2).
 
-**Success for v1:** For four weeks in a row, section leaders record attendance at every rehearsal and service, and the director plans every set in the app instead of from memory and texts. A week counts when every non-cancelled Saturday and Sunday event has marks for all sections.
+**Success for v1:** For four weeks in a row, section leaders record attendance at every rehearsal and service. A week counts when every non-cancelled Saturday and Sunday event has marks for all sections.
+
+**Success for v2:** For four weeks in a row, the director plans every set in the app instead of from memory and texts. A week counts when its Sunday set exists in the app before that Sunday.
 
 ## Users and roles
 
 | Role | Who | How they get in | What they can do |
 | --- | --- | --- | --- |
-| Admin | The director (not a choir member), her assistant (a member), and Skye as maintainer (not a member). Comfortable with a phone; the director is not technical. | Email sign-in code, stays signed in for 90 days | Everything: roster, accounts, attendance for all events, songs, sets, stats, the Django admin |
+| Admin | The director (not a choir member), her assistant (a member), and Skye as maintainer (not a member). Comfortable with a phone; the director is not technical. | Email sign-in code, stays signed in for 90 days | Everything: roster, accounts, attendance for all events, the Django admin; and, from v2, songs, sets and stats |
 | Section leader | One per section, except that the Tenor leader also covers Bass (3 people). All are choir members. | Email sign-in code, stays signed in for 90 days | See the members of their own sections, mark their attendance (except Wednesdays), see attendance rates and follow-up flags for them. No songs, sets or song stats. |
 
 Other choir members don't sign in.
@@ -35,15 +37,20 @@ Other choir members don't sign in.
 - Sign-in by emailed code, roles, and account management by admins
 - Roster: members, sections, Praise Team, status history (Active / On Break / Inactive), one-time import of the existing list
 - Attendance: weekly events created automatically, special events, marking per section, notes, rates by period, follow-up flags
+- Hosting on Railway with daily backups from Skye's Mac
+
+### In v2
+
+v2 work can start while v1 is being measured. v2 adds no new roles or hosting.
+
 - Song library: fields, links, default leads, search, a "Needs details" list, one-time import from the ProPresenter library
 - Set planning: Sunday and Wednesday templates (special-event sets start empty), leads per slot, "Copy as text"
 - Song stats by song, lead and artist, by period
 - History: entering past sets, plus a one-time assisted import of about 12 months from the group texts
-- Hosting on Railway with daily backups from Skye's Mac
 
 ### Later
 
-- Set recommendations from history, lead availability (Excused marks made ahead) and artist (milestone M3)
+- Set recommendations from history, lead availability (Excused marks made ahead) and artist (v3)
 - Sign-in by SMS code through Twilio Verify (about $2 a month)
 - Lyrics, and searching them
 - Rehearsal planning: which songs each rehearsal works on, beyond the Sunday set
@@ -362,9 +369,9 @@ The app is split into three modules: **accounts** (sign-in, roles), **roster** (
 
 | Milestone | Dates | Focus |
 | --- | --- | --- |
-| M1 Roster & attendance | Oct 21 – Nov 6, 2026 | Deploy, sign-in, roster and import, attendance, rates and flags, backups |
-| M2 Songs, sets & history | Nov 9 – Dec 4, 2026 | Song library and import, set planning, stats, history import |
-| M3 Recommendations | No date | Set recommendations |
+| v1 Roster & attendance | Oct 21 – Nov 6, 2026 | Deploy, sign-in, roster and import, attendance, rates and flags, backups. Measured for 4 weeks after launch. |
+| v2 Songs, sets & history | Nov 9 – Dec 4, 2026 (tentative) | Song library and import, set planning, stats, history import. Starts while v1 is measured; dates are revisited once v1 is live. |
+| v3 Recommendations | No date | Set recommendations |
 
 ### Open questions
 
@@ -374,7 +381,7 @@ The app is split into three modules: **accounts** (sign-in, roles), **roster** (
 
 - 2026-10-20: Build rather than buy. Planning Center is in use at the church but Skye has no access to it, and no other tool fits.
 - 2026-10-20: One project with roster and songs modules over one database, since song leads are members. Discovery and other ministries may become a separate project.
-- 2026-10-20: Roster first (M1), even though set planning is the director's biggest pain, because sets need leads from the roster.
+- 2026-10-20: Roster first (v1), even though set planning is the director's biggest pain, because sets need leads from the roster.
 - 2026-10-20: Attendance is per date (Sunday is one event), with notes for partial attendance; the director's policy is to attend both services.
 - 2026-10-20: Email sign-in codes for v1; SMS through Twilio Verify later.
 - 2026-10-20: Railway Hobby and Postgres, to match Skye's other apps. Backups from Skye's Mac.
@@ -387,3 +394,4 @@ The app is split into three modules: **accounts** (sign-in, roles), **roster** (
 - 2026-10-23: The IP limit (20 an hour) is higher than the email limit (5 an hour) because the whole choir may share one church wifi address (AC-7).
 - 2026-10-23: The director's and her assistant's routine work (members, status, events, attendance, sets, stats) gets our own mobile-first pages, not the Django admin, even though the admin could do some of it for less build effort. Two different looks and vocabularies would be a jarring, error-prone experience for non-technical users, and ease of use for them outranks build efficiency. The Unfold admin stays Skye's tool for maintenance and manual data fixes, and the fallback when something goes wrong.
 - 2026-10-24: A status change must actually change the status, compared with the status in effect on its date and with the next later change, so the history never holds pointless rows. The member page shows the last change as a sentence with a link to the full history, because members go on break often and the list would grow. The Members list groups by section and shows status as a badge, rather than grouping by status as well, which would repeat it. The Django admin reaches status changes only through a member, never as a list of everyone's.
+- 2026-10-24: v1 is roster and attendance only; songs, sets, stats and history import become v2 (milestones renamed M1/M2/M3 to v1/v2/v3). Roster and attendance stand on their own, and the old v1 success measure couldn't be checked until about January. v2 work starts while v1 is being measured. This changes release order only: still one project, three modules and one database.
