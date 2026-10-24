@@ -77,3 +77,88 @@ class MemberTests(TestCase):
 
         self.assertContains(response, "Ada")
         self.assertContains(response, "Grace")
+
+
+class SectionLeaderTests(TestCase):
+    def setUp(self):
+        self.alto = Member.objects.create(name="Alice Alto", section="alto")
+        self.tenor = Member.objects.create(name="Tom Tenor", section="tenor")
+        self.bass = Member.objects.create(name="Bea Bass", section="bass")
+        self.soprano = Member.objects.create(name="Sue Soprano", section="soprano")
+        self.leader = Account.objects.create_user("alto@example.com", sections=["alto"])
+        self.client.force_login(self.leader)
+
+    def test_ro3_leader_list_holds_only_their_own_sections_members(self):
+        response = self.client.get("/members/")
+
+        self.assertContains(response, "Alice Alto")
+        for hidden in ["Tom Tenor", "Bea Bass", "Sue Soprano"]:
+            self.assertNotContains(response, hidden)
+
+    def test_ro3_a_leader_with_two_sections_sees_both(self):
+        self.leader.sections = ["tenor", "bass"]
+        self.leader.save()
+
+        response = self.client.get("/members/")
+
+        self.assertContains(response, "Tom Tenor")
+        self.assertContains(response, "Bea Bass")
+        self.assertNotContains(response, "Alice Alto")
+
+    def test_ro3_a_leader_with_no_sections_sees_an_empty_list(self):
+        self.leader.sections = []
+        self.leader.save()
+
+        response = self.client.get("/members/")
+
+        self.assertContains(response, "No members to show")
+
+    def test_ro3_leader_opens_a_detail_page_for_their_own_section(self):
+        response = self.client.get(f"/members/{self.alto.pk}/")
+
+        self.assertContains(response, "Alice Alto")
+
+    def test_ro3_leader_gets_not_found_for_another_sections_member(self):
+        self.assertEqual(self.client.get(f"/members/{self.tenor.pk}/").status_code, 404)
+
+    def test_ro3_leader_gets_not_found_for_the_add_and_edit_pages(self):
+        for url in ["/members/new/", f"/members/{self.alto.pk}/edit/", f"/members/{self.tenor.pk}/edit/"]:
+            self.assertEqual(self.client.get(url).status_code, 404, url)
+
+    def test_ro3_leader_cannot_post_to_the_add_or_edit_pages(self):
+        self.client.post("/members/new/", {"name": "Sneaky", "section": "alto"})
+        response = self.client.post(f"/members/{self.alto.pk}/edit/", {"name": "Renamed", "section": "alto"})
+
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(Member.objects.filter(name="Sneaky").exists())
+        self.alto.refresh_from_db()
+        self.assertEqual(self.alto.name, "Alice Alto")
+
+    def test_ro3_leader_pages_show_no_add_or_edit_controls(self):
+        for url in ["/members/", f"/members/{self.alto.pk}/"]:
+            response = self.client.get(url)
+            self.assertNotContains(response, "Add member")
+            self.assertNotContains(response, "/edit/")
+
+
+class SignedOutTests(TestCase):
+    def test_signed_out_visitors_are_sent_to_sign_in_from_every_member_page(self):
+        member = Member.objects.create(name="Ada", section="bass")
+
+        for url in ["/members/", "/members/new/", f"/members/{member.pk}/", f"/members/{member.pk}/edit/"]:
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, 302, url)
+            self.assertTrue(response["Location"].startswith("/signin/"), url)
+
+
+class HeaderLinkTests(TestCase):
+    def test_signed_in_admins_and_leaders_get_a_members_link_in_the_header(self):
+        for account in [
+            Account.objects.create_superuser("admin@example.com"),
+            Account.objects.create_user("leader@example.com", sections=["alto"]),
+        ]:
+            self.client.force_login(account)
+
+            response = self.client.get("/members/")
+
+            self.assertContains(response, 'href="/members/"', msg_prefix=account.email)
