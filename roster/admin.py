@@ -1,10 +1,11 @@
 from django.contrib import admin
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.html import format_html
 from unfold.admin import ModelAdmin
 
-from roster.models import Member, StatusChange
+from roster.models import Member, Status, StatusChange
 
 
 @admin.register(StatusChange)
@@ -46,6 +47,13 @@ class MemberAdmin(ModelAdmin):
     list_filter = ["section", "praise_team"]
     search_fields = ["name", "email"]
     readonly_fields = ["status_changes_link"]
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        # RO-2: every member has a status, as with the app's Add form: a new member starts
+        # Active today. Editing leaves the history alone.
+        if not change:
+            StatusChange.objects.create(member=obj, status=Status.ACTIVE, effective_on=timezone.localdate())
 
     @admin.display(description="Status changes")
     def status_changes_link(self, member):

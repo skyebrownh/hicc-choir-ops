@@ -493,6 +493,23 @@ class StatusAdminTests(TestCase):
         self.assertContains(response, "be in the future")
         self.assertEqual(self.member.status_changes.count(), 2)
 
+    def test_ro2_a_member_added_in_the_django_admin_starts_active_dated_today(self):
+        response = self.client.post(
+            "/admin/roster/member/add/", {"name": "New Singer", "section": "tenor", "phone": "", "email": "", "notes": ""}
+        )
+
+        self.assertEqual(response.status_code, 302)
+        change = Member.objects.get(name="New Singer").status_changes.get()
+        self.assertEqual((change.status, change.effective_on), ("active", today()))
+
+    def test_ro2_editing_a_member_in_the_django_admin_adds_no_status_change(self):
+        self.client.post(
+            f"/admin/roster/member/{self.member.pk}/change/",
+            {"name": "Grace H", "section": "alto", "phone": "", "email": "", "notes": ""},
+        )
+
+        self.assertEqual(self.member.status_changes.count(), 2)
+
     def test_ro2_saving_in_the_admin_returns_to_that_members_status_changes(self):
         response = self.client.post(
             "/admin/roster/statuschange/add/",
