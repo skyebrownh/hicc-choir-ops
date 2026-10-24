@@ -52,9 +52,9 @@ def member_edit(request, pk):
 def member_status(request, pk):
     """RO-2, RO-3: admins record a status change. Past changes are never edited here (fix them in the Django admin)."""
     member = get_object_or_404(Member.objects.visible_to(request.user), pk=pk)
-    form = StatusChangeForm(request.POST or None)
+    # The member is set up front so the model's "must change" check (RO-2) can see their history.
+    form = StatusChangeForm(request.POST or None, instance=StatusChange(member=member))
     if request.method == "POST" and form.is_valid():
-        form.instance.member = member
         form.save()
         return redirect("member-detail", pk=member.pk)
     return render(

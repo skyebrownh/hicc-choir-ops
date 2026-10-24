@@ -432,3 +432,56 @@ class DetailQueryTests(TestCase):
 
         status_queries = [q for q in queries if "roster_statuschange" in q["sql"]]
         self.assertEqual(len(status_queries), 1)
+
+
+class MustChangeRuleTests(TestCase):
+    """RO-2: a status change that changes nothing is pointless, so it is rejected."""
+
+    def setUp(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+        self.member = Member.objects.create(name="Ada", section="bass")
+        StatusChange.objects.create(member=self.member, status="active", effective_on=date(2026, 1, 5))
+        StatusChange.objects.create(member=self.member, status="inactive", effective_on=date(2026, 6, 1))
+        self.url = f"/members/{self.member.pk}/status/"
+
+    def post(self, status, on):
+        return self.client.post(self.url, {"status": status, "effective_on": on})
+
+    def test_ro2_the_same_status_as_the_one_in_effect_is_rejected_and_names_it(self):
+        response = self.post("active", "2026-03-01")
+
+        self.assertContains(response, "Ada is already Active on Mar 1, 2026")
+        self.assertEqual(self.member.status_changes.count(), 2)
+
+    def test_ro2_the_same_status_as_the_current_one_is_rejected_today(self):
+        response = self.post("inactive", today().isoformat())
+
+        self.assertContains(response, "already Inactive")
+        self.assertEqual(self.member.status_changes.count(), 2)
+
+    def test_ro2_a_change_matching_the_next_later_change_is_rejected(self):
+        # Inactive is already coming on Jun 1, so Inactive on Mar 1 would make that row pointless.
+        response = self.post("inactive", "2026-03-01")
+
+        self.assertContains(response, "Jun 1, 2026")
+        self.assertContains(response, "would change nothing")
+        self.assertEqual(self.member.status_changes.count(), 2)
+
+    def test_ro2_a_back_dated_change_that_differs_on_both_sides_is_saved(self):
+        self.post("on_break", "2026-03-01")
+
+        self.assertEqual(self.member.status_changes.count(), 3)
+
+    def test_ro2_a_same_date_change_must_differ_from_the_one_entered_before_it(self):
+        self.post("on_break", "2026-07-01")
+
+        self.assertContains(self.post("on_break", "2026-07-01"), "already On Break")
+        self.post("active", "2026-07-01")
+        self.assertEqual(self.member.current_status, "active")
+
+    def test_ro2_the_first_status_of_a_member_with_none_can_be_anything(self):
+        fresh = Member.objects.create(name="New", section="alto")
+
+        response = self.client.post(f"/members/{fresh.pk}/status/", {"status": "inactive", "effective_on": "2026-02-01"})
+
+        self.assertEqual(response.status_code, 302)

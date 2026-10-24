@@ -47,7 +47,9 @@ class StatusChangeForm(forms.ModelForm):
         for field in self.fields.values():
             field.widget.attrs["class"] = INPUT_CLASSES
         # US Eastern "today" (settings.TIME_ZONE), not the server's UTC date.
-        self.fields["effective_on"].initial = timezone.localdate
+        # (Set on `initial`, not the field: a form built on an instance starts from the instance's empty date.)
+        if self.initial.get("effective_on") is None:
+            self.initial["effective_on"] = timezone.localdate()
 
     def clean_effective_on(self):
         # RO-2: a past or today's date only. There is deliberately no same-date check:
