@@ -2,9 +2,9 @@ from itertools import groupby
 
 from django.contrib import messages
 from django.db import transaction
-from django.utils.formats import date_format as _date_format
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.dateformat import format as format_date
 from django.views.decorators.http import require_POST
 
 from accounts.models import Role, Section
@@ -167,7 +167,7 @@ def member_praise_team(request, pk):
 def _by_month(events):
     """AT-1, AT-3: [("November 2026", [events...]), ...], one group per month, in the order the events came in."""
     first_of_month = lambda event: event.date.replace(day=1)
-    return [(_date_format(month, "F Y"), list(group)) for month, group in groupby(events, key=first_of_month)]
+    return [(format_date(month, "F Y"), list(group)) for month, group in groupby(events, key=first_of_month)]
 
 
 @role_required(Role.ADMIN)
