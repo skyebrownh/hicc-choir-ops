@@ -1811,6 +1811,10 @@ class EventListTests(TestCase):
 
 class EventPermissionTests(TestCase):
     def test_at1_leaders_get_not_found_on_every_events_page(self):
+        # Fixed "today": after the event's date these would still pass, but for being past, not for the role.
+        clock = fake_now(2026, 11, 1)
+        clock.start()
+        self.addCleanup(clock.stop)
         self.client.force_login(Account.objects.create_user("leader@example.com", sections=["alto"]))
         event = make_event(date(2026, 12, 5))
 
@@ -2147,6 +2151,10 @@ class RestoreEventTests(TestCase):
         self.assertTrue(old.canceled)
 
     def test_at3_leaders_get_not_found_and_signed_out_visitors_go_to_sign_in(self):
+        # Fixed "today": after the event's date these would still pass, but for being past, not for the role.
+        clock = fake_now(2026, 11, 1)
+        clock.start()
+        self.addCleanup(clock.stop)
         event = make_event(date(2026, 12, 5), canceled=True)
         self.client.logout()
         response = self.client.post(f"/events/{event.pk}/restore/")
@@ -2365,6 +2373,10 @@ class EditEventTests(TestCase):
         self.assertNotContains(past_page, f'href="/events/{earlier.pk}/edit/"')
 
     def test_at2_leaders_get_not_found_and_signed_out_visitors_go_to_sign_in(self):
+        # Fixed "today": after the event's date these would still pass, but for being past, not for the role.
+        clock = fake_now(2026, 11, 1)
+        clock.start()
+        self.addCleanup(clock.stop)
         event = make_event(date(2026, 12, 5))
         self.client.logout()
         self.assertTrue(self.client.post(f"/events/{event.pk}/edit/")["Location"].startswith("/signin/"))
@@ -2452,6 +2464,10 @@ class DeleteEventTests(TestCase):
         self.assertNotContains(list_page, "/delete/")
 
     def test_at2_leaders_get_not_found_and_signed_out_visitors_go_to_sign_in(self):
+        # Fixed "today": after the event's date these would still pass, but for being past, not for the role.
+        clock = fake_now(2026, 11, 1)
+        clock.start()
+        self.addCleanup(clock.stop)
         event = make_event(date(2026, 12, 5))
         self.client.logout()
         self.assertTrue(self.client.post(f"/events/{event.pk}/delete/")["Location"].startswith("/signin/"))

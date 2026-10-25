@@ -221,7 +221,8 @@ def event_add(request):
 
 @role_required(Role.ADMIN)
 def event_edit(request, pk):
-    """AT-2: admins change an upcoming event's name, who is expected and notes (canceled ones too).
+    """AT-2: admins change an upcoming event's name, who is expected and notes, and correct the date of a special
+    event or extra rehearsal (canceled ones too).
 
     Only today or later: who was expected at a past event feeds rates and flags, so it isn't edited here
     (fix it in the Django admin).
@@ -252,7 +253,7 @@ def event_delete(request, pk):
     is "not found", since the scheduled command would only create it again.
     """
     event = get_object_or_404(
-        Event.objects.exclude(kind__in=[Event.Kind.WEDNESDAY, Event.Kind.SATURDAY, Event.Kind.SUNDAY]),
+        Event.objects.exclude(kind__in=Event.WEEKLY_KINDS),
         pk=pk,
         date__gte=timezone.localdate(),
     )

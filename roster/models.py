@@ -245,6 +245,9 @@ class Event(models.Model):
         EVERYONE = "everyone", "Everyone"
         PRAISE_TEAM = "praise_team", "Praise Team"
 
+    # AT-1: the kinds the scheduled command creates, one a date. Special events and extra rehearsals are not here.
+    WEEKLY_KINDS = [Kind.WEDNESDAY, Kind.SATURDAY, Kind.SUNDAY]
+
     date = models.DateField()
     kind = models.CharField(max_length=10, choices=Kind.choices)
     # AT-2: a special event is always named, an extra rehearsal may be, and the weekly ones never are.
@@ -274,7 +277,7 @@ class Event(models.Model):
     @property
     def is_weekly(self):
         # AT-1: made by the scheduled command, so told apart by kind alone (they have no name).
-        return self.kind in (self.Kind.WEDNESDAY, self.Kind.SATURDAY, self.Kind.SUNDAY)
+        return self.kind in self.WEEKLY_KINDS
 
     @property
     def title(self):
