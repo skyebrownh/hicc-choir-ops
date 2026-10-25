@@ -724,7 +724,7 @@ class AccountPagesTests(TestCase):
 
         self.assertLess(page.index('href="/accounts/"'), page.index('href="/members/"'))
 
-    def test_ac4_every_page_says_who_is_signed_in_by_member_name_or_email(self):
+    def test_ac8_every_page_says_who_is_signed_in_by_member_name_or_email(self):
         self.assertContains(self.client.get("/week/"), "Signed in as admin@example.com")
 
         leader = self.make_leader()
@@ -732,12 +732,12 @@ class AccountPagesTests(TestCase):
 
         self.assertContains(self.client.get("/attendance/"), "Signed in as Sophie Reed")
 
-    def test_ac4_the_signed_in_line_is_not_shown_to_visitors(self):
+    def test_ac8_the_signed_in_line_is_not_shown_to_visitors(self):
         self.client.logout()
 
         self.assertNotContains(self.client.get("/signin/"), "Signed in as")
 
-    def test_ac5_the_list_marks_your_own_account_as_you(self):
+    def test_ac8_the_list_marks_your_own_account_as_you(self):
         self.make_leader()
 
         listing = self.client.get("/accounts/").content.decode()
@@ -807,7 +807,7 @@ class AccountPagesTests(TestCase):
 
         self.assertRegex(page, rf'<option value="{leader.member_id}" selected>')
 
-    def test_ac5_your_own_member_is_marked_you_in_the_dropdown(self):
+    def test_ac8_your_own_member_is_marked_you_in_the_dropdown(self):
         me = make_member("Amy Walker", "alto")
         self.admin.member = me
         self.admin.save()

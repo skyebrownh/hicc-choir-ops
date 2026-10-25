@@ -18,6 +18,7 @@
       </span>
       {# AC-5: the heading says the role, so only a leader's sections show. An admin keeps stored sections but sees every section. #}
       <span class="flex flex-wrap justify-end gap-2">
+        {# AC-8: your own account is marked, so you can tell which row is you. #}
         {% if account.pk == user.pk %}<span class="badge-accent">You</span>{% endif %}
         {% if not account.is_admin %}{% for section in account.section_labels %}<span class="badge">{{ section }}</span>{% endfor %}{% endif %}
       </span>

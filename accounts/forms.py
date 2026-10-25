@@ -82,6 +82,7 @@ class AccountForm(forms.ModelForm):
         you = getattr(self.acting_user, "member_id", None)
 
         def label(member):
+            # AC-8: your own member is marked "you"; a greyed-out one says why.
             notes = [text for applies, text in [(member.pk == you, "you"), (member.pk in have_account, "has an account")] if applies]
             return f"{member.name} ({', '.join(notes)})" if notes else member.name
 
