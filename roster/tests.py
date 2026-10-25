@@ -2119,7 +2119,7 @@ class RestoreEventTests(TestCase):
             events_page = self.client.get("/events/")
             past_page = self.client.get("/events/past/")
 
-        self.assertContains(events_page, f'href="/events/{canceled.pk}/restore/"')
+        self.assertContains(events_page, f'href="/events/{canceled.pk}/restore/" class="btn-quiet"')
         self.assertNotContains(events_page, f'href="/events/{live.pk}/restore/"')
         self.assertNotContains(past_page, f'href="/events/{old.pk}/restore/"')
 

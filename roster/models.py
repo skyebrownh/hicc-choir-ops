@@ -245,8 +245,8 @@ class Event(models.Model):
         EVERYONE = "everyone", "Everyone"
         PRAISE_TEAM = "praise_team", "Praise Team"
 
-    # Each weekly kind has its own badge color. Written out in full, because Tailwind finds the classes it
-    # needs by scanning for whole class names. Special events and extra rehearsals keep the plain gray badge.
+    # AT-1: each weekly kind has its own badge color (classes in tailwind/input.css). Special events and
+    # extra rehearsals keep the plain gray badge.
     KIND_BADGE_CLASSES = {
         Kind.WEDNESDAY: "badge-midweek",
         Kind.SATURDAY: "badge-rehearsal",
@@ -284,6 +284,7 @@ class Event(models.Model):
 
     @property
     def badge_class(self):
+        # AT-1: the CSS class for this kind's badge on the Events pages.
         return self.KIND_BADGE_CLASSES.get(self.kind, "badge")
 
     @property
