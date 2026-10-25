@@ -200,7 +200,7 @@ The real list is imported once, into production's database. Two things make it d
 5. Sign in to the production site and check the Members list: the count and a few names, sections and Praise Team flags should match the file. Each member should be Active, dated the day you imported.
 6. Don't run it a second time once it has worked: every name would be reported as already on the roster. To add someone later, use the Add member page. Keep `private-data/members.csv` only on your Mac (it is git-ignored), or delete it once you no longer need it.
 
-Not yet tried against Railway: if step 3 misbehaves (for example `railway ssh` doesn't pass the piped file through), say so and this section gets corrected.
+This was done once for the real choir list on 2026-10-25, and step 3 worked as written: `railway ssh` passed the piped file through. The import is a one-time job, so there is normally no reason to run it again.
 
 ## How work happens
 
