@@ -762,6 +762,13 @@ class AccountPagesTests(TestCase):
             '<optgroup label="Bass">', "Ben Carter",
         )
 
+    def test_ac5_a_member_with_no_section_or_status_yet_is_listed_under_no_section(self):
+        Member.objects.create(name="Nina New")
+
+        page = self.client.get("/accounts/new/").content.decode()
+
+        self.assert_in_order(page, '<optgroup label="No section">', "Nina New")
+
     def test_ac5_members_who_already_have_an_account_are_shown_greyed_out(self):
         taken = make_member("Sophie Reed", "soprano")
         free = make_member("Amy Walker", "alto")
