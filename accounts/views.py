@@ -1,7 +1,7 @@
 import logging
 
 from django.contrib.auth import login, logout
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from accounts import codes, ratelimit
@@ -108,8 +108,21 @@ def account_list(request):
 @role_required(Role.ADMIN)
 def account_add(request):
     """AC-5, AC-6: admins give a member an account, or make an admin with no member."""
-    form = AccountForm(request.POST or None)
+    form = AccountForm(request.POST or None, acting_user=request.user)
     if request.method == "POST" and form.is_valid():
         form.save()
         return redirect("account-list")
     return render(request, "accounts/account_form.html", {"form": form, "title": "Add an account"})
+
+
+@role_required(Role.ADMIN)
+def account_edit(request, pk):
+    """AC-5: admins change an account's role, member or sections. The email stays as it is."""
+    account = get_object_or_404(Account, pk=pk)
+    form = AccountForm(request.POST or None, instance=account, acting_user=request.user)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        return redirect("account-list")
+    return render(
+        request, "accounts/account_form.html", {"form": form, "account": account, "title": f"Edit {account.display_name}"}
+    )

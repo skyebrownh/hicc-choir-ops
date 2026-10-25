@@ -36,8 +36,13 @@ class AccountForm(forms.ModelForm):
         model = Account
         fields = ["email", "role", "member", "sections"]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, acting_user=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.acting_user = acting_user
+        if self.instance.pk:
+            # AC-1: sign-in codes go to this address, so changing it would orphan whoever signs in with it.
+            # A disabled field ignores whatever is posted and keeps the stored email.
+            self.fields["email"].disabled = True
         # AC-5: a member has at most one account, so offer only those without one (plus this account's own).
         self.fields["member"].queryset = Member.objects.filter(
             Q(account__isnull=True) | Q(account=self.instance.pk)
@@ -45,6 +50,12 @@ class AccountForm(forms.ModelForm):
         self.fields["email"].widget.attrs["class"] = "input"
         self.fields["role"].widget.attrs["class"] = "select"
         self.fields["member"].widget.attrs["class"] = "select"
+        self.fields["sections"].widget.attrs["class"] = "size-6 accent-indigo-600"
+
+    @property
+    def role_is_admin(self):
+        # Decides whether the page starts with the section boxes hidden; the same rule the script applies on change.
+        return self["role"].value() == Role.ADMIN
 
     def clean_email(self):
         email = self.cleaned_data["email"]
@@ -63,7 +74,10 @@ class AccountForm(forms.ModelForm):
                 self.add_error("member", "A section leader has to be a choir member.")
             if not cleaned.get("sections"):
                 self.add_error("sections", "Pick at least one section.")
-        elif role == Role.ADMIN:
+        if self.instance.pk and self.instance.pk == getattr(self.acting_user, "pk", None) and role != Role.ADMIN:
+            # Also guarantees the last admin can't lose their access.
+            self.add_error("role", "You can't take away your own admin access.")
+        if role == Role.ADMIN:
             # AC-5: an admin sees every section, so submitted sections are ignored and the stored ones
             # stay, ready if they become a leader again.
             cleaned["sections"] = list(self.instance.sections)

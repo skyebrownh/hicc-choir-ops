@@ -597,3 +597,67 @@ class AccountPagesTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertFalse(Account.objects.filter(email="other@example.com").exists())
+
+    def make_leader(self, name="Sophie Reed", section="soprano", sections=None):
+        member = make_member(name, section)
+        return Account.objects.create_user(
+            f"{name.split()[0].lower()}@example.com", sections=sections or [section], member=member
+        )
+
+    def edit(self, account, **fields):
+        return self.client.post(f"/accounts/{account.pk}/edit/", fields)
+
+    def test_ac5_an_admin_changes_a_leaders_sections_and_it_applies_on_the_next_request(self):
+        leader = self.make_leader()
+
+        response = self.edit(leader, role="section_leader", member=leader.member_id, sections=["alto", "tenor"])
+
+        self.assertRedirects(response, "/accounts/")
+        self.client.force_login(Account.objects.get(pk=leader.pk))
+        self.assertEqual(self.client.get("/members/").status_code, 200)
+        self.assertCountEqual(Account.objects.get(pk=leader.pk).sections, ["alto", "tenor"])
+
+    def test_ac5_changing_a_leader_to_admin_keeps_their_stored_sections_and_hides_the_boxes(self):
+        leader = self.make_leader(sections=["soprano", "alto"])
+
+        self.edit(leader, role="admin", member=leader.member_id, sections=["bass"])
+
+        leader.refresh_from_db()
+        self.assertEqual((leader.role, leader.sections), (Role.ADMIN, ["soprano", "alto"]))
+        page = self.client.get(f"/accounts/{leader.pk}/edit/")
+        self.assertContains(page, "Admins see all sections")
+        self.assertContains(page, 'id="section-boxes" hidden')
+        self.assertNotContains(self.client.get("/accounts/"), "Soprano</span>")
+
+    def test_ac5_changing_an_admin_back_to_leader_needs_a_section_and_shows_the_stored_ones(self):
+        leader = self.make_leader(sections=["soprano"])
+        self.edit(leader, role="admin", member=leader.member_id)
+
+        page = self.client.get(f"/accounts/{leader.pk}/edit/")
+        self.assertRegex(page.content.decode(), r'value="soprano"[^>]*\bchecked')
+        response = self.edit(leader, role="section_leader", member=leader.member_id)
+
+        self.assertContains(response, "Pick at least one section")
+        leader.refresh_from_db()
+        self.assertEqual(leader.role, Role.ADMIN)
+
+    def test_ac5_the_email_cannot_be_changed_on_the_edit_page(self):
+        leader = self.make_leader()
+
+        page = self.client.get(f"/accounts/{leader.pk}/edit/")
+        self.edit(leader, email="new@example.com", role="section_leader", member=leader.member_id, sections=["soprano"])
+
+        self.assertContains(page, "To change the email, remove this account and add it again.")
+        leader.refresh_from_db()
+        self.assertEqual(leader.email, "sophie@example.com")
+
+    def test_ac5_an_admin_cannot_demote_their_own_account(self):
+        member = make_member("Amy Walker", "alto")
+        self.admin.member = member
+        self.admin.save()
+
+        response = self.edit(self.admin, role="section_leader", member=member.pk, sections=["alto"])
+
+        self.assertContains(response, "take away your own admin access")
+        self.admin.refresh_from_db()
+        self.assertEqual(self.admin.role, Role.ADMIN)
