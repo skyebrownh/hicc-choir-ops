@@ -1,8 +1,12 @@
 """Members: adding, editing and viewing. Everything goes through the test client, signed in as a role."""
 
+import tempfile
 from datetime import date, datetime, timedelta, timezone as dt_timezone
+from io import StringIO
+from pathlib import Path
 from unittest import mock
 
+from django.core.management import CommandError, call_command
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TestCase, TransactionTestCase
@@ -1325,3 +1329,105 @@ class MemberListSectionTests(TestCase):
 
         for table in ["roster_sectionchange", "roster_praiseteamchange"]:
             self.assertEqual(len([q for q in queries if table in q["sql"]]), 1, table)
+
+
+class ImportMembersTests(TestCase):
+    """RO-5: the one-time CSV import. Run through `call_command`, with small CSV files written here (fake data only)."""
+
+    def run_import(self, text, *, expect_error=False):
+        """Write `text` to a temp CSV, run the command, and return what it printed."""
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "members.csv"
+            path.write_text(text, encoding="utf-8")
+            out = StringIO()
+            if expect_error:
+                with self.assertRaises(CommandError) as caught:
+                    call_command("import_members", str(path), stdout=out)
+                return out.getvalue() + str(caught.exception)
+            call_command("import_members", str(path), stdout=out)
+            return out.getvalue()
+
+    def test_ro5_import_creates_active_members_with_section_and_flag_dated_today(self):
+        self.run_import(
+            "name,section,praise_team,phone,email,notes\n"
+            "Ada Example,Soprano,yes,555-0101,ada@example.com,Likes hymns\n"
+            "Bo Example,Bass,no,,,\n"
+        )
+        ada = Member.objects.get(name="Ada Example")
+        self.assertEqual(ada.phone, "555-0101")
+        self.assertEqual(ada.email, "ada@example.com")
+        self.assertEqual(ada.notes, "Likes hymns")
+        self.assertEqual(ada.current_status, "active")
+        self.assertEqual(ada.current_section, "soprano")
+        self.assertTrue(ada.current_praise_team)
+        self.assertEqual(ada.status_history().get().effective_on, today())
+        self.assertEqual(ada.section_history().get().effective_on, today())
+        bo = Member.objects.get(name="Bo Example")
+        self.assertEqual(bo.current_section, "bass")
+        self.assertFalse(bo.current_praise_team)
+        self.assertEqual(bo.current_status, "active")
+
+    def test_ro5_optional_columns_can_be_missing_and_section_can_be_any_case(self):
+        self.run_import("name,section\nCy Example,aLtO\n")
+        cy = Member.objects.get(name="Cy Example")
+        self.assertEqual(cy.current_section, "alto")
+        self.assertFalse(cy.current_praise_team)
+        self.assertEqual((cy.phone, cy.email, cy.notes), ("", "", ""))
+
+    def test_ro5_every_praise_team_spelling_is_understood(self):
+        spellings = {"yes": True, "Y": True, "TRUE": True, "1": True, "no": False, "n": False, "false": False, "0": False, "": False}
+        rows = "".join(f"Member {i},Tenor,{value}\n" for i, value in enumerate(spellings))
+        self.run_import("name,section,praise_team\n" + rows)
+        for i, expected in enumerate(spellings.values()):
+            self.assertEqual(Member.objects.get(name=f"Member {i}").current_praise_team, expected, list(spellings)[i])
+
+    def test_ro5_a_file_saved_by_excel_with_a_bom_still_works(self):
+        self.run_import("﻿name,section\nDi Example,Bass\n")
+        self.assertTrue(Member.objects.filter(name="Di Example").exists())
+
+    def test_ro5_every_bad_row_is_listed_by_line_and_nothing_is_imported(self):
+        Member.objects.create(name="Existing Person")
+        output = self.run_import(
+            "name,section,praise_team,phone,email,notes\n"  # line 1: header
+            "Good One,Soprano,yes,,,\n"  # line 2: fine
+            ",Alto,no,,,\n"  # line 3: missing name
+            "Bad Section,Baritone,no,,,\n"  # line 4: unknown section
+            "Bad Email,Bass,no,,not-an-email,\n"  # line 5: bad email
+            "Bad Flag,Tenor,maybe,,,\n"  # line 6: bad Praise Team value
+            "existing person,Alto,no,,,\n"  # line 7: name already on the roster (ignoring case)
+            "Twin,Alto,no,,,\n"  # line 8: first Twin is fine
+            "TWIN,Alto,no,,,\n",  # line 9: repeated in the file itself
+            expect_error=True,
+        )
+        for line in (3, 4, 5, 6, 7, 9):
+            self.assertIn(f"line {line}:", output)
+        for line in (1, 2, 8):
+            self.assertNotIn(f"line {line}:", output)
+        self.assertEqual(list(Member.objects.values_list("name", flat=True)), ["Existing Person"])
+
+    def test_ro5_output_never_includes_names_emails_or_phones(self):
+        secrets = ["Zelda Secretname", "zelda.secret@example.com", "555-0199"]
+        ok = self.run_import(f"name,section,phone,email\n{secrets[0]},Alto,{secrets[2]},{secrets[1]}\n")
+        failed = self.run_import(
+            f"name,section,phone,email\n{secrets[0]}2,Nonsense,{secrets[2]},{secrets[1]}\n"
+            f"Other Secret,Alto,{secrets[2]},not-an-email\n",
+            expect_error=True,
+        )
+        for text in (ok, failed):
+            for secret in secrets + ["Other Secret", "not-an-email", "Nonsense"]:
+                self.assertNotIn(secret, text)
+
+    def test_ro5_a_missing_file_is_a_clear_error(self):
+        with self.assertRaises(CommandError) as caught:
+            call_command("import_members", "/nonexistent/members.csv", stdout=StringIO())
+        self.assertIn("not found", str(caught.exception).lower())
+
+    def test_ro5_a_file_without_the_required_columns_imports_nothing(self):
+        output = self.run_import("full name,voice\nAda Example,Alto\n", expect_error=True)
+        self.assertIn("name", output)
+        self.assertIn("section", output)
+        self.assertFalse(Member.objects.exists())
+
+    def test_ro5_an_empty_file_is_a_clear_error(self):
+        self.run_import("", expect_error=True)
+        self.assertFalse(Member.objects.exists())

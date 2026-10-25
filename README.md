@@ -160,6 +160,48 @@ gunzip -c ~/Backups/hicc-choir-ops/hicc-YYYY-MM-DD-HHMM.sql.gz \
 
 Then check `/health/db/` shows `ok` and sign in to confirm the data looks right.
 
+## Importing members
+
+A one-time command loads the existing member list from a CSV file (RO-5). The real list never goes into git: keep it in `private-data/`, which is git-ignored. Git doesn't track empty folders, so make it yourself once:
+
+```sh
+mkdir -p private-data
+```
+
+Convert the assistant's plain-text list to a CSV by hand, with a header row and these columns (only `name` and `section` are required):
+
+| Column | What goes in it |
+| --- | --- |
+| `name` | The member's full name |
+| `section` | Soprano, Alto, Tenor or Bass (any capitals) |
+| `praise_team` | `yes`, `y`, `true` or `1` for the Praise Team; `no`, `n`, `false`, `0` or blank for not |
+| `phone`, `email`, `notes` | Optional |
+
+Then run it with the file's path:
+
+```sh
+uv run --env-file .env python manage.py import_members private-data/members.csv
+```
+
+Every member is added as Active, with their section and Praise Team flag, all dated today. The command checks every row first: if any row is bad it imports nothing and lists each problem as `line N: reason` (never the person's details), so fix the file and run it again. A name already on the roster counts as a bad row, so a second run can't create duplicates.
+
+### Importing in production
+
+The real list is imported once, into production's database. Two things make it different from running it locally. The CSV is on your Mac but the command has to run inside Railway's service (see Deploy, "To run a command in production", above), so the file is piped in from your Mac. And it writes real data, so take a backup first.
+
+1. Check the file works first: run the command locally against `seed basic` data (see Getting started; `seed` resets your local members, so only do this on fake data). Use names that aren't in the seed data, or the rows will be reported as already on the roster. A bad row in production just stops the import with nothing added, but finding it locally is quicker.
+2. Make a fresh backup, so there is a copy from just before the import: `~/Backups/hicc-choir-ops/backup.sh now`
+3. Send the file and run the import, from the project folder (so the path to the CSV is right). `cat` feeds the CSV into `railway ssh` as input (the same way the restore above feeds in a backup), and `/dev/stdin` tells the command to read its file from that input. The command writes no copy of the file, and the member details are not part of the command line, so they are not in your shell history either. Whether Railway keeps any record of what passes through an ssh session hasn't been checked:
+
+   ```sh
+   cat private-data/members.csv | railway ssh --service hicc-choir-ops --environment production -- python manage.py import_members /dev/stdin
+   ```
+4. Read the output. "Imported N members." means it worked. Anything else means nothing was imported: either `line N: reason` problems (a name that appears twice in the file, even in different capitals, is also a bad row), or a problem with the whole file ("The file needs a header row...", or text that isn't UTF-8). Fix `private-data/members.csv` and run step 3 again. If it just sits there with no output, press Ctrl-C and check the Members list before trying again: the import is all-or-nothing, so you will see either all the members or none.
+5. Sign in to the production site and check the Members list: the count and a few names, sections and Praise Team flags should match the file. Each member should be Active, dated the day you imported.
+6. Don't run it a second time once it has worked: every name would be reported as already on the roster. To add someone later, use the Add member page. Keep `private-data/members.csv` only on your Mac (it is git-ignored), or delete it once you no longer need it.
+
+Not yet tried against Railway: if step 3 misbehaves (for example `railway ssh` doesn't pass the piped file through), say so and this section gets corrected.
+
 ## How work happens
 
 Every change starts from a GitHub issue; [CLAUDE.md](CLAUDE.md) has the project's conventions.
