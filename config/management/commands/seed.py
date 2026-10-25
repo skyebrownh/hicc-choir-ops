@@ -57,8 +57,14 @@ def seed_basic():
         else:
             StatusChange.objects.create(member=member, status=OTHER_STATUSES.get(name, "active"), effective_on=today)
     # For trying the section-leader view by hand. The sign-in code prints in the server console.
-    Account.objects.create_user("alto.leader@example.com", sections=["alto"])
-    Account.objects.create_user("tenor.leader@example.com", sections=["tenor", "bass"])
+    # AC-5: each leader is a member in one of their sections, as real leaders are.
+    Account.objects.create_user("alto.leader@example.com", sections=["alto"], member=Member.objects.get(name="Alice Grant"))
+    Account.objects.create_user(
+        "tenor.leader@example.com", sections=["tenor", "bass"], member=Member.objects.get(name="Tom Fisher")
+    )
+    # AC-6: like the director, an admin who is not a choir member. Admins survive a reseed, so create it only once.
+    if not Account.objects.filter(email="director@example.com").exists():
+        Account.objects.create_user("director@example.com", role=Role.ADMIN)
 
 
 SCENARIOS = {"basic": seed_basic}

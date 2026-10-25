@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ title }} · HICC Choir Ops{% endblock %}
+{% block content %}
+{# AC-5, AC-6: add and edit. Admins only; leaders get "not found". #}
+<div class="mx-auto max-w-md">
+  <div class="card">
+    <h1 class="page-title">{{ title }}</h1>
+    <form method="post" class="mt-6 space-y-6" id="account-form">
+      {% csrf_token %}
+      {% include "components/_field.html" with field=form.email %}
+      {% if account %}<p class="muted -mt-4">To change the email, remove this account and add it again.</p>{% endif %}
+      {% include "components/_field.html" with field=form.role %}
+      {% include "components/_field.html" with field=form.member %}
+      <p class="muted -mt-4">Inactive members aren't listed.</p>
+      {# AC-5: leaders pick sections; an admin sees every section. account_form.js swaps the two when the role changes; the server decides regardless (see AccountForm.clean). #}
+      <fieldset id="section-boxes" {% if form.role_is_admin %}hidden{% endif %}>
+        <legend class="label">Sections</legend>
+        {% for checkbox in form.sections %}
+        <label class="flex min-h-11 items-center gap-3 font-medium text-gray-900">{{ checkbox.tag }} {{ checkbox.choice_label }}</label>
+        {% endfor %}
+        {% for error in form.sections.errors %}<p role="alert" class="field-error">{{ error }}</p>{% endfor %}
+      </fieldset>
+      <p id="admin-note" class="muted" {% if not form.role_is_admin %}hidden{% endif %}>Admins see all sections.</p>
+      <button type="submit" class="btn-primary">Save</button>
+      <a href="{% url 'account-list' %}" class="btn-secondary">Cancel</a>
+    </form>
+    {% if account %}
+    <a href="{% url 'account-remove' account.pk %}" class="link mt-4 !text-red-600">Remove this account</a>
+    {% endif %}
+  </div>
+</div>
+<script src="{% static 'account_form.js' %}" defer></script>
+{% endblock %}

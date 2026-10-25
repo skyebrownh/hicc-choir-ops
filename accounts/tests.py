@@ -15,6 +15,8 @@ from django.utils import timezone
 
 from accounts import email as resend
 from accounts.models import Account, Role, SignInCode
+from roster.models import Member, StatusChange
+from roster.tests import make_member
 
 # Django's default hasher is deliberately slow; MD5 keeps every code check fast in tests.
 FAST_HASHER = override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
@@ -508,3 +510,339 @@ class RateLimitTests(TestCase):
         response = self.request_code("guess20@example.com", HTTP_X_FORWARDED_FOR="1.2.3.99, 203.0.113.7")
 
         self.assertContains(response, "Too many requests", status_code=429)
+
+
+class AccountPagesTests(TestCase):
+    """AC-5, AC-6: admins manage accounts on our own pages. Signed in as a role, through the test client."""
+
+    def setUp(self):
+        self.admin = Account.objects.create_superuser("admin@example.com")
+        self.client.force_login(self.admin)
+
+    def test_ac5_the_list_groups_admins_then_leaders_and_sorts_leaders_by_section_then_name(self):
+        for name, sections in [("Zed Young", ["alto"]), ("Amy Walker", ["alto", "tenor"]), ("Sophie Reed", ["soprano"]), ("Tim Hayes", ["bass", "tenor"])]:
+            member = make_member(name, sections[0])
+            Account.objects.create_user(f"{name.split()[0].lower()}@example.com", sections=sections, member=member)
+
+        response = self.client.get("/accounts/")
+
+        self.assertEqual(
+            [(label, [a.display_name for a in accounts]) for label, accounts in response.context["groups"]],
+            [
+                ("Admins", ["admin@example.com"]),
+                ("Section leaders", ["Sophie Reed", "Amy Walker", "Zed Young", "Tim Hayes"]),
+            ],
+        )
+        # The headings say the role, so rows carry no role badge.
+        self.assertNotContains(response, ">Section leader<")
+
+    def add(self, **fields):
+        return self.client.post("/accounts/new/", fields)
+
+    def test_ac5_admin_gives_a_member_an_account_as_a_leader_with_one_section(self):
+        member = make_member("Sophie Reed", "soprano")
+
+        response = self.add(email="sophie@example.com", role="section_leader", member=member.pk, sections=["soprano"])
+
+        self.assertRedirects(response, "/accounts/")
+        account = Account.objects.get(email="sophie@example.com")
+        self.assertEqual((account.role, account.sections, account.member), (Role.SECTION_LEADER, ["soprano"], member))
+
+    def test_ac5_a_leader_can_cover_several_sections(self):
+        member = make_member("Tom Fisher", "tenor")
+
+        self.add(email="tom@example.com", role="section_leader", member=member.pk, sections=["tenor", "bass"])
+
+        self.assertCountEqual(Account.objects.get(email="tom@example.com").sections, ["tenor", "bass"])
+
+    def test_ac5_an_admin_account_ignores_submitted_sections(self):
+        member = make_member("Amy Walker", "alto")
+
+        self.add(email="amy@example.com", role="admin", member=member.pk, sections=["alto"])
+
+        account = Account.objects.get(email="amy@example.com")
+        self.assertEqual((account.role, account.sections), (Role.ADMIN, []))
+
+    def test_ac5_a_leader_with_no_section_is_rejected(self):
+        member = make_member("Sophie Reed", "soprano")
+
+        response = self.add(email="sophie@example.com", role="section_leader", member=member.pk)
+
+        self.assertContains(response, "Pick at least one section")
+        self.assertFalse(Account.objects.filter(email="sophie@example.com").exists())
+
+    def test_ac5_a_leader_with_no_member_is_rejected(self):
+        response = self.add(email="sophie@example.com", role="section_leader", sections=["soprano"])
+
+        self.assertContains(response, "A section leader has to be a choir member")
+        self.assertFalse(Account.objects.filter(email="sophie@example.com").exists())
+
+    def test_ac6_an_admin_account_can_have_no_member_and_makes_no_member_record(self):
+        response = self.add(email="director@example.com", role="admin")
+
+        self.assertRedirects(response, "/accounts/")
+        self.assertIsNone(Account.objects.get(email="director@example.com").member)
+        self.assertEqual(Member.objects.count(), 0)
+
+    def test_ac5_a_duplicate_email_in_any_letter_case_is_rejected(self):
+        Account.objects.create_user("sophie@example.com", role=Role.ADMIN)
+
+        response = self.add(email="Sophie@Example.com", role="admin")
+
+        self.assertContains(response, "already has an account")
+        self.assertEqual(Account.objects.count(), 2)
+
+    def test_ac5_a_member_with_an_account_cannot_be_given_another(self):
+        member = make_member("Sophie Reed", "soprano")
+        Account.objects.create_user("sophie@example.com", sections=["soprano"], member=member)
+
+        response = self.add(email="other@example.com", role="admin", member=member.pk)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Account.objects.filter(email="other@example.com").exists())
+
+    def make_leader(self, name="Sophie Reed", section="soprano", sections=None):
+        member = make_member(name, section)
+        return Account.objects.create_user(
+            f"{name.split()[0].lower()}@example.com", sections=sections or [section], member=member
+        )
+
+    def edit(self, account, **fields):
+        return self.client.post(f"/accounts/{account.pk}/edit/", fields)
+
+    def test_ac5_an_admin_changes_a_leaders_sections_and_it_applies_on_the_next_request(self):
+        leader = self.make_leader()
+
+        response = self.edit(leader, role="section_leader", member=leader.member_id, sections=["alto", "tenor"])
+
+        self.assertRedirects(response, "/accounts/")
+        self.client.force_login(Account.objects.get(pk=leader.pk))
+        self.assertEqual(self.client.get("/members/").status_code, 200)
+        self.assertCountEqual(Account.objects.get(pk=leader.pk).sections, ["alto", "tenor"])
+
+    def test_ac5_changing_a_leader_to_admin_keeps_their_stored_sections_and_hides_the_boxes(self):
+        leader = self.make_leader(sections=["soprano", "alto"])
+
+        self.edit(leader, role="admin", member=leader.member_id, sections=["bass"])
+
+        leader.refresh_from_db()
+        self.assertEqual((leader.role, leader.sections), (Role.ADMIN, ["soprano", "alto"]))
+        page = self.client.get(f"/accounts/{leader.pk}/edit/")
+        self.assertContains(page, "Admins see all sections")
+        self.assertContains(page, 'id="section-boxes" hidden')
+        # The admin kept Soprano and Alto, yet the list shows no section badge for them.
+        listing = self.client.get("/accounts/").content.decode()
+        self.assertNotIn(">Soprano<", listing)
+        self.assertNotIn(">Alto<", listing)
+
+    def test_ac5_changing_an_admin_back_to_leader_needs_a_section_and_shows_the_stored_ones(self):
+        leader = self.make_leader(sections=["soprano"])
+        self.edit(leader, role="admin", member=leader.member_id)
+
+        page = self.client.get(f"/accounts/{leader.pk}/edit/")
+        self.assertRegex(page.content.decode(), r'value="soprano"[^>]*\bchecked')
+        response = self.edit(leader, role="section_leader", member=leader.member_id)
+
+        self.assertContains(response, "Pick at least one section")
+        leader.refresh_from_db()
+        self.assertEqual(leader.role, Role.ADMIN)
+
+    def test_ac5_the_email_cannot_be_changed_on_the_edit_page(self):
+        leader = self.make_leader()
+
+        page = self.client.get(f"/accounts/{leader.pk}/edit/")
+        self.edit(leader, email="new@example.com", role="section_leader", member=leader.member_id, sections=["soprano"])
+
+        self.assertContains(page, "To change the email, remove this account and add it again.")
+        leader.refresh_from_db()
+        self.assertEqual(leader.email, "sophie@example.com")
+
+    def test_ac5_an_admin_cannot_demote_their_own_account(self):
+        member = make_member("Amy Walker", "alto")
+        self.admin.member = member
+        self.admin.save()
+
+        response = self.edit(self.admin, role="section_leader", member=member.pk, sections=["alto"])
+
+        self.assertContains(response, "take away your own admin access")
+        self.admin.refresh_from_db()
+        self.assertEqual(self.admin.role, Role.ADMIN)
+
+    def test_ac5_removing_an_account_needs_the_confirm_page_to_be_submitted(self):
+        leader = self.make_leader()
+
+        page = self.client.get(f"/accounts/{leader.pk}/remove/")
+
+        self.assertContains(page, "Remove the account for Sophie Reed?")
+        self.assertTrue(Account.objects.filter(pk=leader.pk).exists())
+
+    def test_ac5_an_admin_removes_an_account_and_that_person_can_no_longer_sign_in(self):
+        leader = self.make_leader()
+
+        response = self.client.post(f"/accounts/{leader.pk}/remove/")
+
+        self.assertRedirects(response, "/accounts/")
+        self.assertFalse(Account.objects.filter(pk=leader.pk).exists())
+        self.assertEqual(Member.objects.filter(name="Sophie Reed").count(), 1)
+        self.client.logout()
+        self.assertContains(self.client.post("/signin/", {"email": "sophie@example.com"}), "no account for that email")
+
+    def test_ac5_an_admin_cannot_remove_their_own_account(self):
+        response = self.client.post(f"/accounts/{self.admin.pk}/remove/")
+
+        self.assertContains(response, "own account")
+        self.assertTrue(Account.objects.filter(pk=self.admin.pk).exists())
+
+    def test_ac5_a_banner_confirms_an_account_was_added_changed_and_removed(self):
+        member = make_member("Sophie Reed", "soprano")
+        added = self.client.post(
+            "/accounts/new/",
+            {"email": "sophie@example.com", "role": "section_leader", "member": member.pk, "sections": ["soprano"]},
+            follow=True,
+        )
+        account = Account.objects.get(email="sophie@example.com")
+        changed = self.client.post(
+            f"/accounts/{account.pk}/edit/",
+            {"role": "section_leader", "member": member.pk, "sections": ["alto"]},
+            follow=True,
+        )
+        removed = self.client.post(f"/accounts/{account.pk}/remove/", follow=True)
+
+        self.assertContains(added, "Account added")
+        self.assertContains(changed, "Account changed")
+        self.assertContains(removed, "Account removed")
+
+    def test_ac5_the_accounts_nav_link_shows_for_admins_and_not_for_leaders(self):
+        self.assertContains(self.client.get("/week/"), 'href="/accounts/"')
+
+        self.client.force_login(self.make_leader())
+
+        self.assertNotContains(self.client.get("/attendance/"), 'href="/accounts/"')
+
+    def test_ac5_the_accounts_link_comes_before_the_members_link(self):
+        page = self.client.get("/week/").content.decode()
+
+        self.assertLess(page.index('href="/accounts/"'), page.index('href="/members/"'))
+
+    def test_ac8_every_page_says_who_is_signed_in_by_member_name_or_email(self):
+        self.assertContains(self.client.get("/week/"), "Signed in as admin@example.com")
+
+        leader = self.make_leader()
+        self.client.force_login(leader)
+
+        self.assertContains(self.client.get("/attendance/"), "Signed in as Sophie Reed")
+
+    def test_ac8_the_signed_in_line_is_not_shown_to_visitors(self):
+        self.client.logout()
+
+        self.assertNotContains(self.client.get("/signin/"), "Signed in as")
+
+    def test_ac8_the_list_marks_your_own_account_as_you(self):
+        self.make_leader()
+
+        listing = self.client.get("/accounts/").content.decode()
+
+        # Only the admin's own row: the leader's row has no marker.
+        self.assertEqual(listing.count(">You<"), 1)
+        self.assertLess(listing.index(">You<"), listing.index("Sophie Reed"))
+
+    def assert_in_order(self, page, *pieces):
+        positions = [page.index(piece) for piece in pieces]
+        self.assertEqual(positions, sorted(positions), pieces)
+
+    def test_ac5_the_member_dropdown_groups_members_by_section_in_choir_order(self):
+        make_member("Ben Carter", "bass")
+        make_member("Amy Walker", "alto")
+        make_member("Sophie Reed", "soprano")
+
+        page = self.client.get("/accounts/new/").content.decode()
+
+        self.assert_in_order(
+            page, '<optgroup label="Soprano">', "Sophie Reed", '<optgroup label="Alto">', "Amy Walker",
+            '<optgroup label="Bass">', "Ben Carter",
+        )
+
+    def test_ac5_a_member_with_no_section_or_status_yet_is_listed_under_no_section(self):
+        Member.objects.create(name="Nina New")
+
+        page = self.client.get("/accounts/new/").content.decode()
+
+        self.assert_in_order(page, '<optgroup label="No section">', "Nina New")
+
+    def test_ac5_members_who_already_have_an_account_are_shown_greyed_out(self):
+        taken = make_member("Sophie Reed", "soprano")
+        free = make_member("Amy Walker", "alto")
+        Account.objects.create_user("sophie@example.com", sections=["soprano"], member=taken)
+
+        page = self.client.get("/accounts/new/").content.decode()
+
+        self.assertRegex(page, rf'<option value="{taken.pk}"[^>]*\bdisabled[^>]*>\s*Sophie Reed \(has an account\)')
+        self.assertNotRegex(page, rf'<option value="{free.pk}"[^>]*\bdisabled')
+
+    def test_ac5_inactive_members_are_left_out_of_the_dropdown_and_the_page_says_so(self):
+        gone = make_member("Ian Stone", "tenor")
+        StatusChange.objects.create(member=gone, status="inactive", effective_on=timezone.localdate())
+        make_member("Tom Fisher", "tenor")
+
+        response = self.client.get("/accounts/new/")
+
+        self.assertNotContains(response, "Ian Stone")
+        self.assertContains(response, "Tom Fisher")
+        self.assertContains(response, "Inactive members aren't listed.")
+
+    def test_ac5_an_inactive_member_cannot_be_given_an_account(self):
+        gone = make_member("Ian Stone", "tenor")
+        StatusChange.objects.create(member=gone, status="inactive", effective_on=timezone.localdate())
+
+        response = self.add(email="ian@example.com", role="section_leader", member=gone.pk, sections=["tenor"])
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Account.objects.filter(email="ian@example.com").exists())
+
+    def test_ac5_editing_an_account_keeps_its_own_member_in_the_dropdown_even_if_inactive(self):
+        leader = self.make_leader("Ian Stone", "tenor")
+        StatusChange.objects.create(member=leader.member, status="inactive", effective_on=timezone.localdate())
+
+        page = self.client.get(f"/accounts/{leader.pk}/edit/").content.decode()
+
+        self.assertRegex(page, rf'<option value="{leader.member_id}" selected>')
+
+    def test_ac8_your_own_member_is_marked_you_in_the_dropdown(self):
+        me = make_member("Amy Walker", "alto")
+        self.admin.member = me
+        self.admin.save()
+        make_member("Sophie Reed", "soprano")
+
+        page = self.client.get("/accounts/new/").content.decode()
+
+        self.assertIn("Amy Walker (you, has an account)", page)
+        self.assertNotIn("Sophie Reed (", page)
+
+
+class AccountPagePermissionTests(TestCase):
+    """AC-5: a section leader asking for an account page gets "not found"; a visitor is sent to sign in."""
+
+    def setUp(self):
+        self.target = Account.objects.create_user("target@example.com", role=Role.ADMIN)
+        self.paths = ["/accounts/", "/accounts/new/", f"/accounts/{self.target.pk}/edit/", f"/accounts/{self.target.pk}/remove/"]
+
+    def test_ac5_a_section_leader_gets_not_found_on_every_account_page_for_get_and_post(self):
+        self.client.force_login(Account.objects.create_user("leader@example.com", sections=["alto"]))
+
+        for path in self.paths:
+            with self.subTest(path=path):
+                self.assertEqual(self.client.get(path).status_code, 404)
+                self.assertEqual(self.client.post(path, {"email": "x@example.com", "role": "admin"}).status_code, 404)
+        self.assertEqual(Account.objects.count(), 2)
+
+    def test_ac5_a_visitor_who_is_not_signed_in_is_sent_to_sign_in(self):
+        for path in self.paths:
+            with self.subTest(path=path):
+                self.assertRedirects(self.client.get(path), f"/signin/?next={path}")
+
+    def test_ac5_an_admin_can_open_every_account_page(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+
+        for path in self.paths:
+            with self.subTest(path=path):
+                self.assertEqual(self.client.get(path).status_code, 200)

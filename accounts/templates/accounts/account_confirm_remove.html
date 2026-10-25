@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Remove account · HICC Choir Ops{% endblock %}
+{% block content %}
+{# AC-5: admins only. Nothing is deleted until this form is submitted. #}
+<div class="mx-auto max-w-md">
+  <div class="card">
+    <h1 class="page-title">Remove the account for {{ account.display_name }}?</h1>
+    {% if error %}
+    <p role="alert" class="alert-error mt-4">{{ error }}</p>
+    <a href="{% url 'account-list' %}" class="btn-secondary mt-6">Back to accounts</a>
+    {% else %}
+    <p class="muted mt-2">{{ account.email }} won't be able to sign in any more. Their member record stays.</p>
+    <form method="post" class="mt-6 space-y-6">
+      {% csrf_token %}
+      <button type="submit" class="btn-primary !bg-red-600 hover:!bg-red-500">Remove account</button>
+      <a href="{% url 'account-edit' account.pk %}" class="btn-secondary">Cancel</a>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

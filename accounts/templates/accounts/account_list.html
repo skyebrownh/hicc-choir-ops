@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Accounts · HICC Choir Ops{% endblock %}
+{% block content %}
+{# AC-5: admins only; leaders get "not found" from role_required. #}
+<div class="flex items-center justify-between gap-4">
+  <h1 class="page-title">Accounts</h1>
+  <a href="{% url 'account-add' %}" class="btn-primary w-auto shrink-0">Add account</a>
+</div>
+{% for label, accounts in groups %}
+<h2 class="mt-6 font-semibold text-gray-900">{{ label }}</h2>
+<ul class="mt-2 divide-y divide-gray-200 overflow-hidden rounded-lg bg-white shadow-sm">
+  {% for account in accounts %}
+  <li>
+    <a href="{% url 'account-edit' account.pk %}" class="flex min-h-14 items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50">
+      <span>
+        <span class="block font-medium text-gray-900">{{ account.display_name }}</span>
+        {% if account.member %}<span class="block muted">{{ account.email }}</span>{% endif %}
+      </span>
+      {# AC-5: the heading says the role, so only a leader's sections show. An admin keeps stored sections but sees every section. #}
+      <span class="flex flex-wrap justify-end gap-2">
+        {# AC-8: your own account is marked, so you can tell which row is you. #}
+        {% if account.pk == user.pk %}<span class="badge-accent">You</span>{% endif %}
+        {% if not account.is_admin %}{% for section in account.section_labels %}<span class="badge">{{ section }}</span>{% endfor %}{% endif %}
+      </span>
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+{% endfor %}
+{% endblock %}

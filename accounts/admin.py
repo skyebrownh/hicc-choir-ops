@@ -13,12 +13,12 @@ class AccountForm(forms.ModelForm):
 
     class Meta:
         model = Account
-        fields = ["email", "role", "sections"]
+        fields = ["email", "role", "member", "sections"]
 
 
 @admin.register(Account)
 class AccountAdmin(ModelAdmin):
-    # Until the account pages (#13), this is how accounts are created.
+    # Accounts are normally managed on the app's own Accounts page; this is Skye's fallback for fixing data.
     form = AccountForm
-    list_display = ["email", "role", "sections"]
+    list_display = ["email", "role", "member", "sections"]
     search_fields = ["email"]

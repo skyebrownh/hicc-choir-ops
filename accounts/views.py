@@ -1,12 +1,13 @@
 import logging
 
+from django.contrib import messages
 from django.contrib.auth import login, logout
-from django.shortcuts import redirect, render
-from django.views.decorators.http import require_POST
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts import codes, ratelimit
-from accounts.forms import CodeForm, EmailForm
-from accounts.models import Account, Role
+from accounts.forms import AccountForm, CodeForm, EmailForm
+from accounts.models import Account, Role, Section
 from accounts.permissions import role_required
 
 logger = logging.getLogger(__name__)
@@ -95,3 +96,68 @@ def week_ahead(request):
 def attendance_home(request):
     """AC-4: section leaders' home page. A placeholder: later issues add their sections' attendance."""
     return render(request, "accounts/attendance_home.html")
+
+
+@role_required(Role.ADMIN)
+def account_list(request):
+    """AC-5: admins see every account, grouped by role: admins by name, then leaders by section and name.
+
+    A leader sorts under their first section in the choir's usual order (Soprano, Alto, Tenor, Bass);
+    a member-less admin sorts by email.
+    """
+    accounts = list(Account.objects.select_related("member"))
+    section_rank = {section: rank for rank, section in enumerate(Section.values)}
+    admins = sorted((a for a in accounts if a.is_admin), key=lambda a: a.display_name.lower())
+    leaders = sorted(
+        (a for a in accounts if not a.is_admin),
+        key=lambda a: (min((section_rank[s] for s in a.sections), default=len(section_rank)), a.display_name.lower()),
+    )
+    groups = [("Admins", admins), ("Section leaders", leaders)]
+    return render(request, "accounts/account_list.html", {"groups": [g for g in groups if g[1]]})
+
+
+@role_required(Role.ADMIN)
+def account_add(request):
+    """AC-5, AC-6: admins give a member an account, or make an admin with no member."""
+    form = AccountForm(request.POST or None, acting_user=request.user)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Account added.")
+        return redirect("account-list")
+    return render(request, "accounts/account_form.html", {"form": form, "title": "Add an account"})
+
+
+@role_required(Role.ADMIN)
+def account_edit(request, pk):
+    """AC-5: admins change an account's role, member or sections. The email stays as it is."""
+    account = get_object_or_404(Account, pk=pk)
+    form = AccountForm(request.POST or None, instance=account, acting_user=request.user)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Account changed.")
+        return redirect("account-list")
+    return render(
+        request, "accounts/account_form.html", {"form": form, "account": account, "title": f"Edit {account.display_name}"}
+    )
+
+
+@role_required(Role.ADMIN)
+@require_http_methods(["GET", "POST"])
+def account_remove(request, pk):
+    """AC-5: admins remove an account. GET asks "are you sure?"; only the POST from that page deletes.
+
+    The member, if any, stays: it is only their way in that goes.
+    """
+    account = get_object_or_404(Account, pk=pk)
+    # AC-5: also guarantees the last admin can't be removed.
+    if account.pk == request.user.pk:
+        return render(
+            request,
+            "accounts/account_confirm_remove.html",
+            {"account": account, "error": "You can't remove your own account."},
+        )
+    if request.method == "POST":
+        account.delete()
+        messages.success(request, "Account removed.")
+        return redirect("account-list")
+    return render(request, "accounts/account_confirm_remove.html", {"account": account})
