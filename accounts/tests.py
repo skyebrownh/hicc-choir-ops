@@ -716,6 +716,11 @@ class AccountPagesTests(TestCase):
 
         self.assertNotContains(self.client.get("/attendance/"), 'href="/accounts/"')
 
+    def test_ac5_the_accounts_link_comes_before_the_members_link(self):
+        page = self.client.get("/week/").content.decode()
+
+        self.assertLess(page.index('href="/accounts/"'), page.index('href="/members/"'))
+
 
 class AccountPagePermissionTests(TestCase):
     """AC-5: a section leader asking for an account page gets "not found"; a visitor is sent to sign in."""
