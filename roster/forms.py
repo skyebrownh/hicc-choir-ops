@@ -187,49 +187,61 @@ class MemberFilterForm(forms.Form):
         return members
 
 
-class EventForm(forms.ModelForm):
-    """AT-2: a special event or extra rehearsal. The weekly kinds are made by the scheduled command, never here."""
+class EventDetailsForm(forms.ModelForm):
+    """AT-2: the parts of an event an admin can type: name, who is expected and notes. The add and edit forms share this."""
 
-    # AT-2: only these two kinds can be added by hand.
-    kind = forms.ChoiceField(choices=[(Event.Kind.SPECIAL, "Special event"), (Event.Kind.EXTRA, "Extra rehearsal")])
     # AT-2: required for a special event only (see `clean`); an unnamed extra rehearsal is shown by its date.
     name = forms.CharField(max_length=200, required=False, label="Name (optional for an extra rehearsal)")
 
     class Meta:
         model = Event
-        fields = ["date", "kind", "name", "expected", "notes"]
+        fields = ["name", "expected", "notes"]
         labels = {"expected": "Who is expected"}
-        # AT-2: any date is fine, including a past one, so there is no "not in the future" check here.
-        widgets = {"date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"), "notes": forms.Textarea(attrs={"rows": 3})}
+        widgets = {"notes": forms.Textarea(attrs={"rows": 3})}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs["class"] = widget_classes(field.widget)
-        # US Eastern "today" (settings.TIME_ZONE), not the server's UTC date.
-        if self.initial.get("date") is None:
-            self.initial["date"] = timezone.localdate()
+
+    def event_kind(self):
+        # The edit form's case: the kind is already set and never changes. The add form overrides this.
+        return self.instance.kind
 
     def clean(self):
         cleaned = super().clean()
-        # On the edit page the kind is fixed, so it comes from the event rather than the form.
-        kind = cleaned.get("kind") or self.instance.kind
-        if kind == Event.Kind.SPECIAL and not cleaned.get("name"):
+        if self.event_kind() == Event.Kind.SPECIAL and not cleaned.get("name"):
             self.add_error("name", "This field is required.")
         return cleaned
 
 
-class EventEditForm(EventForm):
-    """AT-2: changes an upcoming event's name, who is expected and notes. Its date and kind never change here:
-    to move or retype an event, cancel it and add a new one."""
+class EventForm(EventDetailsForm):
+    """AT-2: adds a special event or extra rehearsal. The weekly kinds are made by the scheduled command, never here."""
 
-    class Meta(EventForm.Meta):
-        fields = ["name", "expected", "notes"]
+    # AT-2: only these two kinds can be added by hand.
+    kind = forms.ChoiceField(choices=[(Event.Kind.SPECIAL, "Special event"), (Event.Kind.EXTRA, "Extra rehearsal")])
+
+    class Meta(EventDetailsForm.Meta):
+        fields = ["date", "kind", "name", "expected", "notes"]
+        # AT-2: any date is fine, including a past one, so there is no "not in the future" check here.
+        widgets = {**EventDetailsForm.Meta.widgets, "date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # The kind is declared on EventForm, so Meta.fields doesn't drop it; it is fixed once the event exists.
-        del self.fields["kind"]
+        # US Eastern "today" (settings.TIME_ZONE), not the server's UTC date.
+        if self.initial.get("date") is None:
+            self.initial["date"] = timezone.localdate()
+
+    def event_kind(self):
+        return self.cleaned_data.get("kind")
+
+
+class EventEditForm(EventDetailsForm):
+    """AT-2: changes an upcoming event's name, who is expected and notes. Its date and kind never change here:
+    to move or retype an event, cancel it and add a new one."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         # AT-1: a Wednesday, Saturday or Sunday event is named by its kind, so it has no name to edit.
         if self.instance.is_weekly:
             del self.fields["name"]
