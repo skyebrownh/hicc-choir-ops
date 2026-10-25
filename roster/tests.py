@@ -1729,3 +1729,240 @@ class CreateEventsCommandTests(TestCase):
             )
 
         self.assertEqual(Event.objects.filter(date=date(2026, 12, 5)).count(), 2)
+
+
+def make_event(day, kind=Event.Kind.SPECIAL, name="Concert", expected=Event.Expected.EVERYONE, **fields):
+    return Event.objects.create(date=day, kind=kind, name=name, expected=expected, **fields)
+
+
+class EventListTests(TestCase):
+    def setUp(self):
+        self.admin = Account.objects.create_superuser("admin@example.com")
+        self.client.force_login(self.admin)
+
+    def test_at1_the_button_creates_events_and_says_how_many(self):
+        with fake_now(2026, 11, 1):
+            response = self.client.post("/events/create-upcoming/", follow=True)
+
+        self.assertRedirects(response, "/events/")
+        self.assertContains(response, "Created 15 events.")
+        self.assertEqual(Event.objects.count(), 15)
+
+    def test_at1_pressing_the_button_again_creates_none(self):
+        with fake_now(2026, 11, 1):
+            self.client.post("/events/create-upcoming/")
+            response = self.client.post("/events/create-upcoming/", follow=True)
+
+        self.assertContains(response, "Created 0 events.")
+
+    def test_at1_the_button_does_not_act_on_a_get(self):
+        response = self.client.get("/events/create-upcoming/")
+
+        self.assertEqual(response.status_code, 405)
+        self.assertFalse(Event.objects.exists())
+
+    def test_at1_the_events_page_has_the_button(self):
+        response = self.client.get("/events/")
+
+        self.assertContains(response, "Create upcoming events")
+
+    def test_at3_the_events_page_lists_today_and_later_in_date_order_and_not_earlier(self):
+        make_event(date(2026, 11, 10), name="Later")
+        make_event(date(2026, 11, 1), name="Today")
+        make_event(date(2026, 10, 30), name="Yesterday")
+        make_event(date(2026, 11, 5), name="Between")
+
+        with fake_now(2026, 11, 1):
+            body = self.client.get("/events/").content.decode()
+
+        self.assertNotIn("Yesterday", body)
+        self.assertLess(body.index("Today"), body.index("Between"))
+        self.assertLess(body.index("Between"), body.index("Later"))
+
+    def test_at1_praise_team_events_say_so(self):
+        make_event(date(2026, 11, 4), kind=Event.Kind.WEDNESDAY, name="", expected=Event.Expected.PRAISE_TEAM)
+
+        with fake_now(2026, 11, 1):
+            response = self.client.get("/events/")
+
+        self.assertContains(response, "Wednesday service")
+        self.assertContains(response, "Praise Team")
+
+    def test_at3_the_events_page_links_to_past_events(self):
+        response = self.client.get("/events/")
+
+        self.assertContains(response, 'href="/events/past/"')
+
+    def test_at3_the_past_page_lists_only_earlier_events_newest_first(self):
+        make_event(date(2026, 10, 20), name="Oldest")
+        make_event(date(2026, 10, 30), name="Newest")
+        make_event(date(2026, 11, 1), name="Today")
+
+        with fake_now(2026, 11, 1):
+            body = self.client.get("/events/past/").content.decode()
+
+        self.assertLess(body.index("Newest"), body.index("Oldest"))
+        self.assertNotIn("Today", body)
+        self.assertIn('href="/events/"', body)
+
+    def test_at3_the_header_has_an_events_link_for_admins(self):
+        self.assertContains(self.client.get("/members/"), 'href="/events/"')
+
+
+class EventPermissionTests(TestCase):
+    def test_at1_leaders_get_not_found_on_every_events_page(self):
+        self.client.force_login(Account.objects.create_user("leader@example.com", sections=["alto"]))
+        event = make_event(date(2026, 12, 5))
+
+        for url in ["/events/", "/events/past/", "/events/new/", f"/events/{event.pk}/cancel/"]:
+            self.assertEqual(self.client.get(url).status_code, 404, url)
+        for url in ["/events/create-upcoming/", "/events/new/", f"/events/{event.pk}/cancel/"]:
+            self.assertEqual(self.client.post(url).status_code, 404, url)
+        self.assertFalse(Event.objects.filter(canceled=True).exists())
+
+    def test_at1_leaders_have_no_events_link(self):
+        self.client.force_login(Account.objects.create_user("leader@example.com", sections=["alto"]))
+
+        self.assertNotContains(self.client.get("/members/"), 'href="/events/"')
+
+    def test_at1_signed_out_visitors_are_sent_to_sign_in(self):
+        event = make_event(date(2026, 12, 5))
+
+        for url in ["/events/", "/events/past/", "/events/new/", f"/events/{event.pk}/cancel/"]:
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, 302, url)
+            self.assertTrue(response["Location"].startswith("/signin/"), url)
+
+
+class AddEventTests(TestCase):
+    def setUp(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+
+    def test_at2_an_admin_adds_a_special_event(self):
+        response = self.client.post(
+            "/events/new/",
+            {"date": "2026-12-05", "kind": "special", "name": "Christmas concert", "expected": "everyone"},
+        )
+
+        self.assertRedirects(response, "/events/")
+        event = Event.objects.get()
+        self.assertEqual((event.date, event.kind, event.name), (date(2026, 12, 5), "special", "Christmas concert"))
+
+    def test_at2_an_admin_adds_an_extra_rehearsal_for_the_praise_team(self):
+        self.client.post(
+            "/events/new/",
+            {"date": "2026-12-02", "kind": "extra", "name": "Band run-through", "expected": "praise_team"},
+        )
+
+        event = Event.objects.get()
+        self.assertEqual((event.kind, event.expected), ("extra", "praise_team"))
+
+    def test_at2_several_events_can_share_a_date(self):
+        for name in ["Concert", "Dress run"]:
+            self.client.post("/events/new/", {"date": "2026-12-05", "kind": "special", "name": name, "expected": "everyone"})
+
+        self.assertEqual(Event.objects.filter(date=date(2026, 12, 5)).count(), 2)
+
+    def test_at2_a_name_is_required(self):
+        response = self.client.post("/events/new/", {"date": "2026-12-05", "kind": "special", "name": "", "expected": "everyone"})
+
+        self.assertContains(response, "This field is required")
+        self.assertFalse(Event.objects.exists())
+
+    def test_at2_a_past_date_is_accepted(self):
+        with fake_now(2026, 11, 1):
+            response = self.client.post(
+                "/events/new/", {"date": "2026-09-01", "kind": "special", "name": "Retreat", "expected": "everyone"}
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Event.objects.get().date, date(2026, 9, 1))
+
+    def test_at2_the_kind_can_only_be_special_or_extra(self):
+        response = self.client.post("/events/new/", {"date": "2026-12-05", "kind": "saturday", "name": "X", "expected": "everyone"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Event.objects.exists())
+
+    def test_at2_the_events_page_links_to_the_add_form(self):
+        self.assertContains(self.client.get("/events/"), 'href="/events/new/"')
+        self.assertContains(self.client.get("/events/new/"), "Special event")
+
+
+class CancelEventTests(TestCase):
+    def setUp(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+
+    def test_at3_the_confirm_page_names_the_event_and_changes_nothing(self):
+        event = make_event(date(2026, 11, 7), name="Rehearsal")
+
+        with fake_now(2026, 11, 1):
+            response = self.client.get(f"/events/{event.pk}/cancel/")
+
+        self.assertContains(response, "Rehearsal")
+        event.refresh_from_db()
+        self.assertFalse(event.canceled)
+
+    def test_at3_canceling_marks_the_event_and_keeps_its_place_in_date_order(self):
+        first = make_event(date(2026, 11, 3), name="First")
+        middle = make_event(date(2026, 11, 7), name="Middle")
+        make_event(date(2026, 11, 9), name="Last")
+
+        with fake_now(2026, 11, 1):
+            response = self.client.post(f"/events/{middle.pk}/cancel/", follow=True)
+            # Only the list: the "is canceled" message above it names the event too.
+            body = response.content.decode().split("<ul", 1)[1]
+
+        middle.refresh_from_db()
+        self.assertTrue(middle.canceled)
+        self.assertRedirects(response, "/events/")
+        self.assertIn("Canceled</span>", body)
+        self.assertLess(body.index("First"), body.index("Middle"))
+        self.assertLess(body.index("Middle"), body.index("Last"))
+        self.assertFalse(first.canceled)
+
+    def test_at3_an_event_today_can_be_canceled(self):
+        event = make_event(date(2026, 11, 1))
+
+        with fake_now(2026, 11, 1):
+            self.client.post(f"/events/{event.pk}/cancel/")
+
+        event.refresh_from_db()
+        self.assertTrue(event.canceled)
+
+    def test_at3_a_past_event_cannot_be_canceled(self):
+        event = make_event(date(2026, 10, 30))
+
+        with fake_now(2026, 11, 1):
+            self.assertEqual(self.client.get(f"/events/{event.pk}/cancel/").status_code, 404)
+            self.assertEqual(self.client.post(f"/events/{event.pk}/cancel/").status_code, 404)
+
+        event.refresh_from_db()
+        self.assertFalse(event.canceled)
+
+    def test_at3_an_already_canceled_event_cannot_be_canceled_again(self):
+        event = make_event(date(2026, 11, 7), canceled=True)
+
+        with fake_now(2026, 11, 1):
+            self.assertEqual(self.client.post(f"/events/{event.pk}/cancel/").status_code, 404)
+
+    def test_at3_only_upcoming_events_that_are_not_canceled_offer_a_cancel_button(self):
+        live = make_event(date(2026, 11, 7), name="Live")
+        gone = make_event(date(2026, 11, 8), name="Gone", canceled=True)
+        past = make_event(date(2026, 10, 30), name="Past")
+
+        with fake_now(2026, 11, 1):
+            events_page = self.client.get("/events/")
+            past_page = self.client.get("/events/past/")
+
+        self.assertContains(events_page, f'href="/events/{live.pk}/cancel/"')
+        self.assertNotContains(events_page, f'href="/events/{gone.pk}/cancel/"')
+        self.assertNotContains(past_page, f'href="/events/{past.pk}/cancel/"')
+
+    def test_at3_the_past_page_badges_canceled_events(self):
+        make_event(date(2026, 10, 30), name="Old", canceled=True)
+
+        with fake_now(2026, 11, 1):
+            response = self.client.get("/events/past/")
+
+        self.assertContains(response, "Canceled</span>")

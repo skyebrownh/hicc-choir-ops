@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Events · HICC Choir Ops{% endblock %}
+{% block content %}
+{# AT-1, AT-3: admins only; leaders get "not found" from the view. #}
+<div class="flex items-center justify-between gap-4">
+  <h1 class="page-title">Events</h1>
+</div>
+<div class="mt-4 flex flex-wrap gap-3">
+  {# AT-1: a form, not a link, because it creates events and so must be a POST. #}
+  <form method="post" action="{% url 'events-create-upcoming' %}">
+    {% csrf_token %}
+    <button type="submit" class="btn-primary w-auto">Create upcoming events</button>
+  </form>
+  <a href="{% url 'event-add' %}" class="btn-secondary w-auto">Add an event</a>
+</div>
+<p class="mt-4"><a href="{% url 'event-past' %}" class="link">Past events</a></p>
+{% if events %}
+<ul class="mt-2 divide-y divide-gray-200 overflow-hidden rounded-lg bg-white shadow-sm">
+  {% for event in events %}{% include "roster/_event_row.html" with can_cancel=True %}{% endfor %}
+</ul>
+{% else %}
+<p class="empty-state mt-6">No upcoming events. Press "Create upcoming events" to add the next few weeks.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,13 @@
+{# AT-1, AT-3: one event in a list. Used by the Events page and the Past events page so the two can't drift apart. #}
+<li class="flex min-h-14 items-center justify-between gap-3 px-4 py-3">
+  <div>
+    <p class="font-medium text-gray-900">{{ event.title }}</p>
+    <p class="muted">{{ event.date|date:"D, M j, Y" }}</p>
+  </div>
+  <div class="flex flex-wrap items-center justify-end gap-2">
+    {% if event.expected == "praise_team" %}<span class="badge-accent">Praise Team</span>{% endif %}
+    {% if event.canceled %}{% include "components/_canceled_badge.html" %}{% endif %}
+    {# AT-3: set by the Events page only. The view refuses a past or already canceled event anyway. #}
+    {% if can_cancel and not event.canceled %}<a href="{% url 'event-cancel' event.pk %}" class="link">Cancel</a>{% endif %}
+  </div>
+</li>

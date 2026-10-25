@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Past events · HICC Choir Ops{% endblock %}
+{% block content %}
+{# AT-3: events before today, newest first. Read-only: past events are fixed in the Django admin. #}
+<h1 class="page-title">Past events</h1>
+<p class="mt-2"><a href="{% url 'event-list' %}" class="link">Back to events</a></p>
+{% if events %}
+<ul class="mt-2 divide-y divide-gray-200 overflow-hidden rounded-lg bg-white shadow-sm">
+  {% for event in events %}{% include "roster/_event_row.html" %}{% endfor %}
+</ul>
+{% else %}
+<p class="empty-state mt-6">No past events yet.</p>
+{% endif %}
+{% endblock %}

@@ -5,7 +5,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from accounts.models import Section
-from roster.models import Member, PraiseTeamChange, SectionChange, Status, StatusChange
+from roster.models import Event, Member, PraiseTeamChange, SectionChange, Status, StatusChange
 
 # Component classes from tailwind/input.css; `input` is 44px tall with 16px text (NFR).
 INPUT_CLASSES = "input"
@@ -185,3 +185,27 @@ class MemberFilterForm(forms.Form):
         if status != "all":
             return members.filter(status_now=status)
         return members
+
+
+class EventForm(forms.ModelForm):
+    """AT-2: a special event or extra rehearsal. The weekly kinds are made by the scheduled command, never here."""
+
+    # AT-2: only these two kinds can be added by hand.
+    kind = forms.ChoiceField(choices=[(Event.Kind.SPECIAL, "Special event"), (Event.Kind.EXTRA, "Extra rehearsal")])
+    # AT-2: the weekly kinds leave the name blank, but a hand-made event is told apart by it.
+    name = forms.CharField(max_length=200, label="Name")
+
+    class Meta:
+        model = Event
+        fields = ["date", "kind", "name", "expected"]
+        labels = {"expected": "Who is expected"}
+        # AT-2: any date is fine, including a past one, so there is no "not in the future" check here.
+        widgets = {"date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs["class"] = widget_classes(field.widget)
+        # US Eastern "today" (settings.TIME_ZONE), not the server's UTC date.
+        if self.initial.get("date") is None:
+            self.initial["date"] = timezone.localdate()

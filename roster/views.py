@@ -1,10 +1,15 @@
+from django.contrib import messages
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.models import Role, Section
 from accounts.permissions import role_required
-from roster.forms import MemberFilterForm, MemberForm, PraiseTeamChangeForm, SectionChangeForm, StatusChangeForm
-from roster.models import Member, PraiseTeamChange, SectionChange, Status, StatusChange
+from roster.events import create_upcoming_events
+from roster.forms import EventForm, MemberFilterForm, MemberForm, PraiseTeamChangeForm, SectionChangeForm, StatusChangeForm
+from django.utils import timezone
+from django.views.decorators.http import require_POST
+
+from roster.models import Event, Member, date_format, PraiseTeamChange, SectionChange, Status, StatusChange
 
 
 def member_list(request):
@@ -155,3 +160,51 @@ def member_praise_team(request, pk):
         request, pk, PraiseTeamChangeForm, PraiseTeamChange, "roster/change_form.html",
         "Change Praise Team for {}", lambda m: "on the Praise Team" if m.current_praise_team else "not on the Praise Team",
     )
+
+
+@role_required(Role.ADMIN)
+def event_list(request):
+    """AT-1, AT-3: events from today on, in date order. Canceled ones stay in place, badged."""
+    events = Event.objects.filter(date__gte=timezone.localdate())
+    return render(request, "roster/event_list.html", {"events": events})
+
+
+@role_required(Role.ADMIN)
+def event_past(request):
+    """AT-3: events before today, newest first, canceled ones included. Read-only."""
+    events = Event.objects.filter(date__lt=timezone.localdate()).order_by("-date", "-id")
+    return render(request, "roster/event_past.html", {"events": events})
+
+
+@role_required(Role.ADMIN)
+@require_POST
+def events_create_upcoming(request):
+    """AT-1: the button that does what the scheduled command does, and says how many events were new."""
+    count = create_upcoming_events()
+    messages.success(request, f"Created {count} {'event' if count == 1 else 'events'}.")
+    return redirect("event-list")
+
+
+@role_required(Role.ADMIN)
+def event_add(request):
+    """AT-2: admins add a special event or extra rehearsal, on any date. Several can share a date."""
+    form = EventForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        return redirect("event-list")
+    return render(request, "roster/event_form.html", {"form": form, "title": "Add an event"})
+
+
+@role_required(Role.ADMIN)
+def event_cancel(request, pk):
+    """AT-3: asks first, then cancels. Only an event dated today or later that is not canceled already.
+
+    Anything else is "not found", so a direct POST can't cancel history that rates and flags rely on.
+    """
+    event = get_object_or_404(Event, pk=pk, canceled=False, date__gte=timezone.localdate())
+    if request.method == "POST":
+        event.canceled = True
+        event.save(update_fields=["canceled"])
+        messages.success(request, f"{event.title} on {date_format(event.date)} is canceled.")
+        return redirect("event-list")
+    return render(request, "roster/event_confirm_cancel.html", {"event": event})

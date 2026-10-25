@@ -76,6 +76,10 @@
   .status-dot-inactive {
     @apply border-2 border-gray-500;
   }
+  /* AT-3: the red dot before "Canceled". Decoration only; the word says it. red-700 holds 3:1 against the gray pill. */
+  .status-dot-canceled {
+    @apply bg-red-700;
+  }
   .badge-accent {
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium bg-indigo-50 text-indigo-700;
   }
