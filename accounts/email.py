@@ -25,6 +25,10 @@ class ResendEmailBackend(BaseEmailBackend):
                 "subject": message.subject,
                 "text": message.body,
             }
+            # Plain EmailMessage has no `alternatives`; EmailMultiAlternatives keeps (content, mimetype) pairs.
+            for content, mimetype in getattr(message, "alternatives", []):
+                if mimetype == "text/html":
+                    payload["html"] = content
             request = urllib.request.Request(
                 RESEND_URL,
                 data=json.dumps(payload).encode(),

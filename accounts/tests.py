@@ -319,8 +319,13 @@ class StaySignedInTests(TestCase):
 
 
 class ResendBackendTests(SimpleTestCase):
-    def message(self):
-        return mail.EmailMessage("Subject", "Body 123456", "HICC <signin@mail.example.com>", ["a@example.com"])
+    def message(self, html="<p>Body 123456</p>"):
+        message = mail.EmailMultiAlternatives(
+            "Subject", "Body 123456", "HICC <signin@mail.example.com>", ["a@example.com"]
+        )
+        if html:
+            message.attach_alternative(html, "text/html")
+        return message
 
     @override_settings(RESEND_API_KEY="test-key")
     def test_ac1_it_posts_the_message_to_resend_with_the_right_headers_and_timeout(self):
@@ -342,8 +347,16 @@ class ResendBackendTests(SimpleTestCase):
                 "to": ["a@example.com"],
                 "subject": "Subject",
                 "text": "Body 123456",
+                "html": "<p>Body 123456</p>",
             },
         )
+
+    @override_settings(RESEND_API_KEY="test-key")
+    def test_ac1_a_message_without_html_is_sent_without_an_html_field(self):
+        with mock.patch("accounts.email.urllib.request.urlopen") as urlopen:
+            resend.ResendEmailBackend().send_messages([self.message(html=None)])
+
+        self.assertNotIn("html", json.loads(urlopen.call_args.args[0].data))
 
     @override_settings(RESEND_API_KEY="test-key")
     def test_ac1_it_raises_when_resend_answers_with_an_error(self):
