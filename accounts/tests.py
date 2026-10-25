@@ -709,7 +709,7 @@ class AccountPagesTests(TestCase):
         self.assertContains(changed, "Account changed")
         self.assertContains(removed, "Account removed")
 
-    def test_the_accounts_nav_link_shows_for_admins_and_not_for_leaders(self):
+    def test_ac5_the_accounts_nav_link_shows_for_admins_and_not_for_leaders(self):
         self.assertContains(self.client.get("/week/"), 'href="/accounts/"')
 
         self.client.force_login(self.make_leader())

@@ -54,7 +54,7 @@ class AccountForm(forms.ModelForm):
 
     @property
     def role_is_admin(self):
-        # Decides whether the page starts with the section boxes hidden; the same rule the script applies on change.
+        # AC-5: decides whether the page starts with the section boxes hidden; the same rule the script applies on change.
         return self["role"].value() == Role.ADMIN
 
     def clean_email(self):

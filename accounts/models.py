@@ -65,6 +65,7 @@ class Account(AbstractBaseUser):
 
     @property
     def section_labels(self):
+        # AC-5: readable section names for the Accounts list.
         return [Section(value).label for value in self.sections]
 
     @property
