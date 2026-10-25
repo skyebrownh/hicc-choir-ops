@@ -33,7 +33,7 @@ def issue_code(account):
     try:
         message = EmailMultiAlternatives(
             "Your HICC Choir Ops sign-in code",
-            # The plain-text version is the fallback for mail apps that don't show HTML.
+            # AC-1: the plain-text version is the fallback for mail apps that don't show HTML.
             f"Your sign-in code is {code}. It works for 10 minutes.\n\n"
             "If you didn't ask for this, ignore this email.",
             None,  # None means the default from address
