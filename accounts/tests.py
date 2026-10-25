@@ -15,7 +15,7 @@ from django.utils import timezone
 
 from accounts import email as resend
 from accounts.models import Account, Role, SignInCode
-from roster.models import Member
+from roster.models import Member, StatusChange
 from roster.tests import make_member
 
 # Django's default hasher is deliberately slow; MD5 keeps every code check fast in tests.
@@ -745,6 +745,71 @@ class AccountPagesTests(TestCase):
         # Only the admin's own row: the leader's row has no marker.
         self.assertEqual(listing.count(">You<"), 1)
         self.assertLess(listing.index(">You<"), listing.index("Sophie Reed"))
+
+    def assert_in_order(self, page, *pieces):
+        positions = [page.index(piece) for piece in pieces]
+        self.assertEqual(positions, sorted(positions), pieces)
+
+    def test_ac5_the_member_dropdown_groups_members_by_section_in_choir_order(self):
+        make_member("Ben Carter", "bass")
+        make_member("Amy Walker", "alto")
+        make_member("Sophie Reed", "soprano")
+
+        page = self.client.get("/accounts/new/").content.decode()
+
+        self.assert_in_order(
+            page, '<optgroup label="Soprano">', "Sophie Reed", '<optgroup label="Alto">', "Amy Walker",
+            '<optgroup label="Bass">', "Ben Carter",
+        )
+
+    def test_ac5_members_who_already_have_an_account_are_shown_greyed_out(self):
+        taken = make_member("Sophie Reed", "soprano")
+        free = make_member("Amy Walker", "alto")
+        Account.objects.create_user("sophie@example.com", sections=["soprano"], member=taken)
+
+        page = self.client.get("/accounts/new/").content.decode()
+
+        self.assertRegex(page, rf'<option value="{taken.pk}"[^>]*\bdisabled[^>]*>\s*Sophie Reed \(has an account\)')
+        self.assertNotRegex(page, rf'<option value="{free.pk}"[^>]*\bdisabled')
+
+    def test_ac5_inactive_members_are_left_out_of_the_dropdown_and_the_page_says_so(self):
+        gone = make_member("Ian Stone", "tenor")
+        StatusChange.objects.create(member=gone, status="inactive", effective_on=timezone.localdate())
+        make_member("Tom Fisher", "tenor")
+
+        response = self.client.get("/accounts/new/")
+
+        self.assertNotContains(response, "Ian Stone")
+        self.assertContains(response, "Tom Fisher")
+        self.assertContains(response, "Inactive members aren't listed.")
+
+    def test_ac5_an_inactive_member_cannot_be_given_an_account(self):
+        gone = make_member("Ian Stone", "tenor")
+        StatusChange.objects.create(member=gone, status="inactive", effective_on=timezone.localdate())
+
+        response = self.add(email="ian@example.com", role="section_leader", member=gone.pk, sections=["tenor"])
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Account.objects.filter(email="ian@example.com").exists())
+
+    def test_ac5_editing_an_account_keeps_its_own_member_in_the_dropdown_even_if_inactive(self):
+        leader = self.make_leader("Ian Stone", "tenor")
+        StatusChange.objects.create(member=leader.member, status="inactive", effective_on=timezone.localdate())
+
+        page = self.client.get(f"/accounts/{leader.pk}/edit/").content.decode()
+
+        self.assertRegex(page, rf'<option value="{leader.member_id}" selected>')
+
+    def test_ac5_your_own_member_is_marked_you_in_the_dropdown(self):
+        me = make_member("Amy Walker", "alto")
+        self.admin.member = me
+        self.admin.save()
+        make_member("Sophie Reed", "soprano")
+
+        page = self.client.get("/accounts/new/").content.decode()
+
+        self.assertIn("Amy Walker (you, has an account)", page)
+        self.assertNotIn("Sophie Reed (", page)
 
 
 class AccountPagePermissionTests(TestCase):

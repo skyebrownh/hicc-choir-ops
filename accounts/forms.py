@@ -2,7 +2,7 @@ from django import forms
 from django.db.models import Q
 
 from accounts.models import Account, Role, Section
-from roster.models import Member
+from roster.models import Member, Status
 
 
 class EmailForm(forms.Form):
@@ -23,6 +23,18 @@ class CodeForm(forms.Form):
     )
 
 
+class MemberSelect(forms.Select):
+    """A dropdown whose listed options can be greyed out and unselectable (`disabled_values`, as strings)."""
+
+    disabled_values = frozenset()
+
+    def create_option(self, name, value, *args, **kwargs):
+        option = super().create_option(name, value, *args, **kwargs)
+        if str(value) in self.disabled_values:
+            option["attrs"]["disabled"] = True
+        return option
+
+
 class AccountForm(forms.ModelForm):
     """AC-5, AC-6: give a member (or nobody, for an admin) a way to sign in. Add and edit share this."""
 
@@ -30,7 +42,9 @@ class AccountForm(forms.ModelForm):
     sections = forms.MultipleChoiceField(
         choices=Section.choices, widget=forms.CheckboxSelectMultiple, required=False
     )
-    member = forms.ModelChoiceField(queryset=Member.objects.none(), required=False, empty_label="No member")
+    member = forms.ModelChoiceField(
+        queryset=Member.objects.none(), required=False, empty_label="No member", widget=MemberSelect
+    )
 
     class Meta:
         model = Account
@@ -43,14 +57,45 @@ class AccountForm(forms.ModelForm):
             # AC-1: sign-in codes go to this address, so changing it would orphan whoever signs in with it.
             # A disabled field ignores whatever is posted and keeps the stored email.
             self.fields["email"].disabled = True
-        # AC-5: a member has at most one account, so offer only those without one (plus this account's own).
-        self.fields["member"].queryset = Member.objects.filter(
-            Q(account__isnull=True) | Q(account=self.instance.pk)
-        ).order_by("name")
+        self._set_member_choices()
         self.fields["email"].widget.attrs["class"] = "input"
         self.fields["role"].widget.attrs["class"] = "select"
         self.fields["member"].widget.attrs["class"] = "select"
         self.fields["sections"].widget.attrs["class"] = "size-6 accent-indigo-600"
+
+    def _set_member_choices(self):
+        """AC-5: the dropdown lists members grouped by section, so an admin can tell who is who.
+
+        - A member with an account is shown but greyed out and unselectable: a member has at most one
+          account, and hiding them would leave the admin wondering where they went.
+        - Inactive members are left out (the page says so), unless this account already belongs to one,
+          so editing it still works.
+        - What the server accepts (`queryset`) is stricter than what is shown, so a hand-made request can't
+          pick a greyed-out or hidden member either.
+        """
+        own = self.instance.member_id
+        shown = Member.objects.with_current_status().filter(
+            ~Q(status_now=Status.INACTIVE) | Q(status_now__isnull=True) | Q(pk=own)
+        )
+        self.fields["member"].queryset = shown.filter(Q(account__isnull=True) | Q(account=self.instance.pk))
+        have_account = set(Account.objects.exclude(pk=self.instance.pk).values_list("member_id", flat=True))
+        you = getattr(self.acting_user, "member_id", None)
+
+        def label(member):
+            notes = [text for applies, text in [(member.pk == you, "you"), (member.pk in have_account, "has an account")] if applies]
+            return f"{member.name} ({', '.join(notes)})" if notes else member.name
+
+        # Sections in the choir's usual order, then anyone with no section at all.
+        sections = [*Section.values, None]
+        groups = []
+        for section in sections:
+            members = sorted((m for m in shown if m.section_now == section), key=lambda m: m.name.lower())
+            if members:
+                heading = Section(section).label if section else "No section"
+                groups.append((heading, [(m.pk, label(m)) for m in members]))
+        widget = self.fields["member"].widget
+        widget.disabled_values = frozenset(str(pk) for pk in have_account if pk)
+        self.fields["member"].choices = [("", "No member"), *groups]
 
     @property
     def role_is_admin(self):
