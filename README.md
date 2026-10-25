@@ -187,9 +187,9 @@ Every member is added as Active, with their section and Praise Team flag, all da
 
 ### Importing in production
 
-The real list is imported once, into production's database. Two things make it different from running it locally. The CSV is on your Mac but the command has to run inside Railway's service (see Deploy, "To run a command in production"), so the file is sent along inside the command. And it writes real data, so take a backup first.
+The real list is imported once, into production's database. Two things make it different from running it locally. The CSV is on your Mac but the command has to run inside Railway's service (see Deploy, "To run a command in production", above), so the file is sent along inside the command. And it writes real data, so take a backup first.
 
-1. Check the file works first: run the command locally against `seed basic` data (above). A bad row in production just stops the import with nothing added, but finding it locally is quicker.
+1. Check the file works first: run the command locally against `seed basic` data (see Getting started; `seed` resets your local members, so only do this on fake data). Use names that aren't in the seed data, or the rows will be reported as already on the roster. A bad row in production just stops the import with nothing added, but finding it locally is quicker.
 2. Make a fresh backup, so there is a copy from just before the import: `~/Backups/hicc-choir-ops/backup.sh now`
 3. Send the file and run the import. This encodes the CSV as plain text on your Mac, writes it to the service's temporary `/tmp` folder, imports it, then deletes it:
 
@@ -199,10 +199,10 @@ The real list is imported once, into production's database. Two things make it d
    unset DATA
    ```
 
-   The member details travel inside the command, over Railway's encrypted connection. They are not saved in your shell history (the history keeps the command as typed, not the expanded value), and the copy in `/tmp` is deleted straight away and would be wiped by any redeploy anyway.
-4. Read the output. "Imported N members." means it worked. If it lists `line N: reason` problems, nothing was imported: fix `private-data/members.csv` and run step 3 again.
+   The member details travel inside the command, so they are not saved in your shell history (history keeps the command as typed, not the expanded value), but they are briefly visible to whatever runs the command, and whether Railway keeps its own record of ssh commands hasn't been checked. The copy in `/tmp` is deleted straight away. If the connection drops part-way, remove it with `railway ssh --service hicc-choir-ops -- "rm -f /tmp/members.csv"`.
+4. Read the output, because the command's exit status doesn't show whether the import worked. "Imported N members." means it worked. Anything else means nothing was imported: either `line N: reason` problems (a name that appears twice in the file, even in different capitals, is also a bad row), or a problem with the whole file ("File not found", a missing header row, or text that isn't UTF-8). Fix `private-data/members.csv` and run step 3 again.
 5. Sign in to the production site and check the Members list: the count and a few names, sections and Praise Team flags should match the file. Each member should be Active, dated the day you imported.
-6. Don't run it a second time once it has worked: every name would be reported as already on the roster. To add someone later, use the Add member page.
+6. Don't run it a second time once it has worked: every name would be reported as already on the roster. To add someone later, use the Add member page. Keep `private-data/members.csv` only on your Mac (it is git-ignored), or delete it once you no longer need it.
 
 Not yet tried against Railway: if step 3 misbehaves (for example `railway ssh` doesn't pass the command through as written), say so and this section gets corrected.
 
