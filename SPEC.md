@@ -260,7 +260,7 @@ v2 work can start while v1 is being measured. v2 adds no new roles or hosting.
 | --- | --- | --- |
 | id | integer | Primary key |
 | date | date | US Eastern |
-| kind | choice | Wednesday service, Saturday rehearsal, Sunday services, Special event, Extra rehearsal |
+| kind | choice | Wednesday service (shown as "Midweek"), Saturday rehearsal ("Rehearsal"), Sunday ("Services"), Special event, Extra rehearsal |
 | name | text | Special events and extra rehearsals |
 | expected | choice | Everyone, Praise Team |
 | canceled | yes/no | |
@@ -400,3 +400,4 @@ The app is split into three modules: **accounts** (sign-in, roles), **roster** (
 - 2026-10-25: The Members list puts Praise Team members first within each status group, and each status badge gets a small dot, so the list is quicker to scan. Status still outranks Praise Team, and the dot is decoration only: the word stays, so status is never shown by colour alone.
 - 2026-10-25: Events are created by a scheduled command, and admins also get a "Create upcoming events" button for when the schedule hasn't run or they want the weeks ahead now. A week runs Monday to Sunday. Only events dated today or later can be canceled, since past events feed rates and flags. The spelling is "canceled" throughout.
 - 2026-10-25: Admins can restore a canceled event (AT-3), under the same limit as canceling: dated today or later. The Events pages group events by month; a regular event shows its date and its kind as a badge (the weekday would only repeat the kind), and the Sunday kind is called "Sunday services". The "Create upcoming events" button becomes a quiet "Add the next few weeks of events" at the bottom of the Events page, since the daily job normally does it.
+- 2026-10-25: On the Events pages a regular event shows its weekday and date with its kind as a colored badge beside them (Midweek blue, Rehearsal amber, Services purple; special events and extra rehearsals stay gray). The earlier choice to leave out the weekday is reversed, and the Sunday kind is now "Services" rather than "Sunday services". The kind names are fixed in the code for now; making them editable in the Django admin is left for later.
