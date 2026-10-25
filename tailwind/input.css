@@ -63,7 +63,7 @@
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium bg-gray-100 text-gray-700;
   }
   /* RO-2: the dot before a status word. Decoration only; the word says the status. The colours are the darker
-     700/600 shades, chosen to hold 3:1 against the gray pill (checked by hand in a browser); Inactive is a hollow ring, so it differs by shape too. */
+     700 shades, chosen to hold 3:1 against the gray pill (amber-600 was only 2.9:1); Inactive is a hollow ring, so it differs by shape too. */
   .status-dot {
     @apply mr-2 inline-block size-2.5 shrink-0 rounded-full;
   }
@@ -71,7 +71,7 @@
     @apply bg-green-700;
   }
   .status-dot-on_break {
-    @apply bg-amber-600;
+    @apply bg-amber-700;
   }
   .status-dot-inactive {
     @apply border-2 border-gray-500;
