@@ -1786,7 +1786,7 @@ class EventListTests(TestCase):
         with fake_now(2026, 11, 1):
             response = self.client.get("/events/")
 
-        self.assertContains(response, "Wednesday service")
+        self.assertContains(response, "Midweek")
         self.assertContains(response, "Praise Team")
 
     def test_at3_the_events_page_links_to_past_events(self):
@@ -2003,19 +2003,36 @@ class EventListLayoutTests(TestCase):
         self.assertLess(body.index("October 2026"), body.index("October thing"))
         self.assertLess(body.index("October thing"), body.index("September 2026"))
 
-    def test_at1_a_regular_event_shows_its_date_and_kind_badge_without_the_weekday(self):
+    def test_at1_a_regular_event_shows_its_weekday_and_date_with_the_kind_badge_beside_them(self):
         make_event(date(2026, 11, 7), kind=Event.Kind.SATURDAY, name="")
 
         body = self.page()
 
-        self.assertIn("Nov 7", body)
-        self.assertIn("Saturday rehearsal</span>", body)
-        self.assertNotIn("Sat,", body)
+        # The badge sits in the same line as the date, not on a line of its own.
+        self.assertRegex(body, r"<p[^>]*>\s*Sat, Nov 7\s*<span[^>]*>Rehearsal</span>\s*</p>")
 
-    def test_at1_the_sunday_kind_is_called_sunday_services(self):
+    def test_at1_the_kinds_are_called_midweek_rehearsal_and_services(self):
+        make_event(date(2026, 11, 4), kind=Event.Kind.WEDNESDAY, name="")
+        make_event(date(2026, 11, 7), kind=Event.Kind.SATURDAY, name="")
         make_event(date(2026, 11, 8), kind=Event.Kind.SUNDAY, name="")
 
-        self.assertIn("Sunday services</span>", self.page())
+        body = self.page()
+
+        for label in ["Midweek</span>", "Rehearsal</span>", "Services</span>"]:
+            self.assertIn(label, body)
+
+    def test_at1_each_kind_has_its_own_badge_color(self):
+        make_event(date(2026, 11, 4), kind=Event.Kind.WEDNESDAY, name="")
+        make_event(date(2026, 11, 7), kind=Event.Kind.SATURDAY, name="")
+        make_event(date(2026, 11, 8), kind=Event.Kind.SUNDAY, name="")
+        make_event(date(2026, 11, 9))
+
+        body = self.page()
+
+        for badge in ["badge-midweek", "badge-rehearsal", "badge-services"]:
+            self.assertEqual(body.count(f'class="{badge}"'), 1, badge)
+        # Special events and extra rehearsals keep the plain gray badge.
+        self.assertIn('class="badge">Special event</span>', body)
 
     def test_at2_a_special_event_shows_its_name_its_date_with_weekday_and_a_kind_badge(self):
         make_event(date(2026, 12, 5), name="Christmas concert")
@@ -2053,7 +2070,7 @@ class RestoreEventTests(TestCase):
         with fake_now(2026, 11, 1):
             response = self.client.get(f"/events/{event.pk}/cancel/")
 
-        self.assertContains(response, "Cancel Saturday rehearsal on Nov 7?")
+        self.assertContains(response, "Cancel Rehearsal on Nov 7?")
         self.assertNotContains(response, "Sat,")
 
     def test_at3_the_cancel_page_button_is_red(self):

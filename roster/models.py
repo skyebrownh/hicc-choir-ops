@@ -235,15 +235,23 @@ class Event(models.Model):
     """AT-1, AT-2, AT-3: a rehearsal or service people are expected at, on one date (US Eastern)."""
 
     class Kind(models.TextChoices):
-        WEDNESDAY = "wednesday", "Wednesday service"
-        SATURDAY = "saturday", "Saturday rehearsal"
-        SUNDAY = "sunday", "Sunday services"
+        WEDNESDAY = "wednesday", "Midweek"
+        SATURDAY = "saturday", "Rehearsal"
+        SUNDAY = "sunday", "Services"
         SPECIAL = "special", "Special event"
         EXTRA = "extra", "Extra rehearsal"
 
     class Expected(models.TextChoices):
         EVERYONE = "everyone", "Everyone"
         PRAISE_TEAM = "praise_team", "Praise Team"
+
+    # Each weekly kind has its own badge color. Written out in full, because Tailwind finds the classes it
+    # needs by scanning for whole class names. Special events and extra rehearsals keep the plain gray badge.
+    KIND_BADGE_CLASSES = {
+        Kind.WEDNESDAY: "badge-midweek",
+        Kind.SATURDAY: "badge-rehearsal",
+        Kind.SUNDAY: "badge-services",
+    }
 
     date = models.DateField()
     kind = models.CharField(max_length=10, choices=Kind.choices)
@@ -273,6 +281,10 @@ class Event(models.Model):
     def is_weekly(self):
         # AT-1: made by the scheduled command, so told apart by kind alone (they have no name).
         return self.kind in (self.Kind.WEDNESDAY, self.Kind.SATURDAY, self.Kind.SUNDAY)
+
+    @property
+    def badge_class(self):
+        return self.KIND_BADGE_CLASSES.get(self.kind, "badge")
 
     @property
     def title(self):

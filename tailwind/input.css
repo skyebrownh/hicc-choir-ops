@@ -15,6 +15,14 @@
 /* The look mirrors heritage-media-availability: Tailwind's default gray and indigo,
    white rounded cards on a pale gray page, 16px text everywhere. It is defined once
    here as named components, so a page says `btn-primary` and restyling is one edit. */
+/* Tailwind v4 leaves buttons with the arrow cursor. Enabled buttons get the hand, as links do. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 @layer components {
   .card {
     @apply overflow-hidden rounded-lg bg-white px-4 py-5 shadow-sm sm:p-6;
@@ -80,13 +88,27 @@
   .status-dot-canceled {
     @apply bg-red-700;
   }
-  /* AT-3: Cancel is rare, so it is a quiet outlined red button in a list (red-700 on white is 5:1+), and a solid red one
-     only on its confirm page, where it is the point. Unlike .btn-primary these two size to their text. */
+  /* AT-3: Cancel and Restore are rare, so in a list they are small pills the size of the badges beside them. The
+     ::after widens the tap area to 44px (NFR) without making the pill any taller. */
   .btn-danger-quiet {
-    @apply inline-flex min-h-11 items-center justify-center rounded-md px-3 font-medium text-red-700 ring-1 ring-red-300 ring-inset hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600;
+    @apply relative inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium text-red-700 ring-1 ring-red-300 ring-inset hover:bg-red-50 after:absolute after:inset-x-0 after:-inset-y-2 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600;
+  }
+  .btn-quiet {
+    @apply relative inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 after:absolute after:inset-x-0 after:-inset-y-2 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600;
   }
   .btn-danger {
     @apply flex min-h-11 w-full items-center justify-center rounded-md px-3.5 py-2.5 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 bg-red-600 text-white shadow-xs hover:bg-red-500;
+  }
+  /* AT-1: one color per weekly kind, so rows are told apart at a glance. The word is always shown too, so the
+     kind is never given by color alone. Dark 800/900 text on the 50 shade holds well over AA. */
+  .badge-midweek {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium bg-blue-50 text-blue-800;
+  }
+  .badge-rehearsal {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium bg-amber-50 text-amber-900;
+  }
+  .badge-services {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium bg-purple-50 text-purple-800;
   }
   .badge-accent {
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium bg-indigo-50 text-indigo-700;
