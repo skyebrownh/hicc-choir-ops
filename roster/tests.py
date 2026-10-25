@@ -14,7 +14,7 @@ from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from accounts.models import Account
-from roster.models import Member, PraiseTeamChange, SectionChange, StatusChange
+from roster.models import Event, Member, PraiseTeamChange, SectionChange, StatusChange
 
 
 def today():
@@ -1655,3 +1655,77 @@ class DropdownStyleTests(TestCase):
         css = (Path(__file__).resolve().parent.parent / "static" / "app.css").read_text()
 
         self.assertIn(".select{", css)
+
+
+def fake_now(year, month, day, hour=12, minute=0, tz="America/New_York"):
+    """A fixed clock for the app's `timezone.now()`, given in US Eastern so tests read like the choir's week."""
+    from zoneinfo import ZoneInfo
+
+    return mock.patch("django.utils.timezone.now", return_value=datetime(year, month, day, hour, minute, tzinfo=ZoneInfo(tz)))
+
+
+class CreateEventsCommandTests(TestCase):
+    def test_at1_creates_wednesday_saturday_and_sunday_for_this_week_and_the_next_four(self):
+        # Sunday 1 Nov 2026 is in the week of Mon 26 Oct; five weeks end on Sun 29 Nov.
+        with fake_now(2026, 11, 1):
+            call_command("create_events", stdout=StringIO())
+
+        events = Event.objects.order_by("date")
+        self.assertEqual(events.count(), 15)
+        self.assertEqual(events.first().date, date(2026, 10, 28))  # the Wednesday of this week
+        self.assertEqual(events.last().date, date(2026, 11, 29))
+        wednesday = Event.objects.get(date=date(2026, 10, 28))
+        self.assertEqual((wednesday.kind, wednesday.expected), (Event.Kind.WEDNESDAY, Event.Expected.PRAISE_TEAM))
+        saturday = Event.objects.get(date=date(2026, 10, 31))
+        self.assertEqual((saturday.kind, saturday.expected), (Event.Kind.SATURDAY, Event.Expected.EVERYONE))
+        sunday = Event.objects.get(date=date(2026, 11, 1))
+        self.assertEqual((sunday.kind, sunday.expected), (Event.Kind.SUNDAY, Event.Expected.EVERYONE))
+
+    def test_at1_reports_how_many_it_created(self):
+        out = StringIO()
+        with fake_now(2026, 11, 1):
+            call_command("create_events", stdout=out)
+
+        self.assertIn("Created 15 events.", out.getvalue())
+
+    def test_at1_rerunning_creates_nothing_more(self):
+        with fake_now(2026, 11, 1):
+            call_command("create_events", stdout=StringIO())
+            out = StringIO()
+            call_command("create_events", stdout=out)
+
+        self.assertEqual(Event.objects.count(), 15)
+        self.assertIn("Created 0 events.", out.getvalue())
+
+    def test_at1_a_canceled_event_is_not_recreated_or_uncanceled(self):
+        with fake_now(2026, 11, 1):
+            call_command("create_events", stdout=StringIO())
+            Event.objects.filter(date=date(2026, 10, 31)).update(canceled=True)
+            call_command("create_events", stdout=StringIO())
+
+        saturday = Event.objects.get(date=date(2026, 10, 31))
+        self.assertTrue(saturday.canceled)
+        self.assertEqual(Event.objects.count(), 15)
+
+    def test_at1_this_week_follows_us_eastern_not_utc(self):
+        # 11:30pm Eastern on Sunday 1 Nov is already Monday 2 Nov in UTC, which would start a new week.
+        with fake_now(2026, 11, 1, hour=23, minute=30):
+            call_command("create_events", stdout=StringIO())
+
+        self.assertEqual(Event.objects.order_by("date").first().date, date(2026, 10, 28))
+
+    def test_at1_the_database_rejects_a_second_saturday_on_one_date(self):
+        from django.db import IntegrityError, transaction
+
+        Event.objects.create(date=date(2026, 10, 31), kind=Event.Kind.SATURDAY, expected=Event.Expected.EVERYONE)
+
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Event.objects.create(date=date(2026, 10, 31), kind=Event.Kind.SATURDAY, expected=Event.Expected.EVERYONE)
+
+    def test_at2_special_events_can_share_a_date(self):
+        for name in ["Concert", "Dress run"]:
+            Event.objects.create(
+                date=date(2026, 12, 5), kind=Event.Kind.SPECIAL, name=name, expected=Event.Expected.EVERYONE
+            )
+
+        self.assertEqual(Event.objects.filter(date=date(2026, 12, 5)).count(), 2)

@@ -229,3 +229,49 @@ class PraiseTeamChange(DatedChange):
     def value_label(self):
         # Lower-case, for inside a sentence.
         return self.get_praise_team_display()[0].lower() + self.get_praise_team_display()[1:]
+
+
+class Event(models.Model):
+    """AT-1, AT-2, AT-3: a rehearsal or service people are expected at, on one date (US Eastern)."""
+
+    class Kind(models.TextChoices):
+        WEDNESDAY = "wednesday", "Wednesday service"
+        SATURDAY = "saturday", "Saturday rehearsal"
+        SUNDAY = "sunday", "Sunday"
+        SPECIAL = "special", "Special event"
+        EXTRA = "extra", "Extra rehearsal"
+
+    class Expected(models.TextChoices):
+        EVERYONE = "everyone", "Everyone"
+        PRAISE_TEAM = "praise_team", "Praise Team"
+
+    # The kinds the scheduled command creates, one a date. Special events and extra rehearsals are not here.
+    WEEKLY_KINDS = [Kind.WEDNESDAY, Kind.SATURDAY, Kind.SUNDAY]
+
+    date = models.DateField()
+    kind = models.CharField(max_length=10, choices=Kind.choices)
+    # Special events and extra rehearsals are named; the weekly ones are not.
+    name = models.CharField(max_length=200, blank=True)
+    expected = models.CharField(max_length=12, choices=Expected.choices)
+    # AT-3: canceled events stay in the database but drop out of sheets, rates and flags.
+    canceled = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["date", "id"]
+        constraints = [
+            # AT-1: at most one Wednesday, Saturday and Sunday event per date. Conditional, because
+            # AT-2 lets several special events and extra rehearsals share a date.
+            models.UniqueConstraint(
+                fields=["date", "kind"],
+                condition=models.Q(kind__in=["wednesday", "saturday", "sunday"]),
+                name="one_weekly_event_per_date",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.title} on {self.date}"
+
+    @property
+    def title(self):
+        # Weekly events are named by their kind; special events and extra rehearsals by what an admin typed.
+        return self.name or self.get_kind_display()
