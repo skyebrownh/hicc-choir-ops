@@ -155,6 +155,13 @@ class SignInTests(TestCase):
         self.assertIn("It works for 10 minutes.", html)
         self.assertIn("If you didn't ask for this, ignore this email.", html)
 
+    def test_ac2_both_email_versions_state_the_code_lifetime_in_force(self):
+        with mock.patch("accounts.codes.CODE_LIFETIME", timedelta(minutes=15)):
+            self.request_code()
+
+        self.assertIn("It works for 15 minutes.", mail.outbox[-1].body)
+        self.assertIn("It works for 15 minutes.", self.html_part())
+
     def test_ac1_the_html_email_has_no_links_images_or_style_blocks(self):
         self.request_code()
 
