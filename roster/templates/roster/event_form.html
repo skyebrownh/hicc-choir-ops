@@ -14,5 +14,7 @@
       <a href="{% url 'event-list' %}" class="btn-secondary">Cancel</a>
     </form>
   </div>
+  {# AT-2: for a mistake, not a called-off event. Kept out of the list rows, where Cancel is. #}
+  {% if delete_url %}<p class="mt-4 text-center"><a href="{{ delete_url }}" class="link text-red-700">Delete this event</a></p>{% endif %}
 </div>
 {% endblock %}

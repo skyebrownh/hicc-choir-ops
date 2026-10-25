@@ -2,6 +2,7 @@ from itertools import groupby
 
 from django.contrib import messages
 from django.db import transaction
+from django.urls import reverse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.dateformat import format as format_date
@@ -234,7 +235,33 @@ def event_edit(request, pk):
         form.save()
         messages.success(request, f"{event.title} on {date_format(event.date)} is updated.")
         return redirect("event-list")
-    return render(request, "roster/event_form.html", {"form": form, "summary": summary, "title": "Edit event"})
+    # AT-2: only a special event or extra rehearsal can be deleted; a regular one would come back with the schedule.
+    delete_url = None if event.is_weekly else reverse("event-delete", args=[event.pk])
+    return render(
+        request,
+        "roster/event_form.html",
+        {"form": form, "summary": summary, "title": "Edit event", "delete_url": delete_url},
+    )
+
+
+@role_required(Role.ADMIN)
+def event_delete(request, pk):
+    """AT-2: removes a special event or extra rehearsal added by mistake (cancel it instead if it was called off).
+
+    Same limit as canceling and editing: dated today or later, so no past rate or flag changes. A regular event
+    is "not found", since the scheduled command would only create it again.
+    """
+    event = get_object_or_404(
+        Event.objects.exclude(kind__in=[Event.Kind.WEDNESDAY, Event.Kind.SATURDAY, Event.Kind.SUNDAY]),
+        pk=pk,
+        date__gte=timezone.localdate(),
+    )
+    if request.method == "POST":
+        message = f"{event.title} on {date_format(event.date)} is deleted."
+        event.delete()
+        messages.success(request, message)
+        return redirect("event-list")
+    return render(request, "roster/event_confirm_delete.html", {"event": event})
 
 
 @role_required(Role.ADMIN)

@@ -188,21 +188,25 @@ class MemberFilterForm(forms.Form):
 
 
 class EventDetailsForm(forms.ModelForm):
-    """AT-2: the parts of an event an admin can type: name, who is expected and notes. The add and edit forms share this."""
+    """AT-2: the parts of an event an admin can type: date, name, who is expected and notes. The add and edit forms share this."""
 
     # AT-2: required for a special event only (see `clean`); an unnamed extra rehearsal is shown by its date.
     name = forms.CharField(max_length=200, required=False, label="Name (optional for an extra rehearsal)")
 
     class Meta:
         model = Event
-        fields = ["name", "expected", "notes"]
+        fields = ["date", "name", "expected", "notes"]
         labels = {"expected": "Who is expected"}
-        widgets = {"notes": forms.Textarea(attrs={"rows": 3})}
+        # AT-2: any date is fine, including a past one, so there is no "not in the future" check here.
+        widgets = {"date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"), "notes": forms.Textarea(attrs={"rows": 3})}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs["class"] = widget_classes(field.widget)
+        # US Eastern "today" (settings.TIME_ZONE), not the server's UTC date.
+        if self.initial.get("date") is None:
+            self.initial["date"] = timezone.localdate()
 
     def event_kind(self):
         # The edit form's case: the kind is already set and never changes. The add form overrides this.
@@ -223,25 +227,18 @@ class EventForm(EventDetailsForm):
 
     class Meta(EventDetailsForm.Meta):
         fields = ["date", "kind", "name", "expected", "notes"]
-        # AT-2: any date is fine, including a past one, so there is no "not in the future" check here.
-        widgets = {**EventDetailsForm.Meta.widgets, "date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")}
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # US Eastern "today" (settings.TIME_ZONE), not the server's UTC date.
-        if self.initial.get("date") is None:
-            self.initial["date"] = timezone.localdate()
 
     def event_kind(self):
         return self.cleaned_data.get("kind")
 
 
 class EventEditForm(EventDetailsForm):
-    """AT-2: changes an upcoming event's name, who is expected and notes. Its date and kind never change here:
-    to move or retype an event, cancel it and add a new one."""
+    """AT-2: changes an upcoming event. The kind never changes. A special event or extra rehearsal can have its
+    date corrected (a mistake in what an admin typed); a Wednesday, Saturday or Sunday event is fixed to its date
+    by the scheduled command, so it can only be canceled."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # AT-1: a Wednesday, Saturday or Sunday event is named by its kind, so it has no name to edit.
+        # AT-1: a regular event is named by its kind and placed by the schedule, so it has no name or date to edit.
         if self.instance.is_weekly:
-            del self.fields["name"]
+            del self.fields["name"], self.fields["date"]

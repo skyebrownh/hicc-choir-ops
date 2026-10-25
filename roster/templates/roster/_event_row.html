@@ -10,9 +10,8 @@
     <p class="flex flex-wrap items-center gap-x-3 gap-y-1 font-medium text-gray-900">{{ event.date|date:"D, M j" }}
       {% include "components/_kind_badge.html" %}</p>
     {% endif %}
-    {% if event.expected == "praise_team" %}<p class="muted">Praise Team only</p>{% endif %}
-    {# AT-2: this event's own note, as typed. #}
-    {% if event.notes %}<p class="muted">{{ event.notes|linebreaksbr }}</p>{% endif %}
+    {# AT-2: this event's own note, as typed. Italic, so it reads apart from the date above it. #}
+    {% if event.notes %}<p class="muted italic">{{ event.notes|linebreaksbr }}</p>{% endif %}
   </div>
   <div class="flex flex-wrap items-center justify-end gap-2">
     {% if event.canceled %}{% include "components/_canceled_badge.html" %}{% endif %}
