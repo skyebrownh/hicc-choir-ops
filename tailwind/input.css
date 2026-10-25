@@ -62,8 +62,8 @@
   .badge {
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium bg-gray-100 text-gray-700;
   }
-  /* RO-2: the dot before a status word. Decoration only; the word says the status. The colours are the 700/600
-     shades so the dot holds 3:1 against the gray pill; Inactive is a hollow ring, so it differs by shape too. */
+  /* RO-2: the dot before a status word. Decoration only; the word says the status. The colours are the darker
+     700/600 shades, chosen to hold 3:1 against the gray pill (checked by hand in a browser); Inactive is a hollow ring, so it differs by shape too. */
   .status-dot {
     @apply mr-2 inline-block size-2.5 shrink-0 rounded-full;
   }

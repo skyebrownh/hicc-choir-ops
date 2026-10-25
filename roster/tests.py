@@ -720,6 +720,17 @@ class MemberListStatusTests(TestCase):
         positions = [content.index(name) for name in names]
         self.assertEqual(positions, sorted(positions))
 
+    def test_ro2_a_section_leader_sees_the_same_order_and_dots(self):
+        self.add("Abe Plain", "alto", "active")
+        self.add("Zed Team", "alto", "active", praise_team=True)
+        self.client.force_login(Account.objects.create_user("alto@example.com", sections=["alto"]))
+
+        response = self.client.get("/members/")
+
+        content = response.content.decode()
+        self.assertLess(content.index("Zed Team"), content.index("Abe Plain"))
+        self.assertContains(response, '<span class="status-dot status-dot-active" aria-hidden="true"></span>Active</span>', count=2)
+
     def test_ro2_status_still_outranks_praise_team(self):
         self.add("Amy Active", "alto", "active")
         self.add("Ivy Inactive Team", "alto", "active", "inactive", praise_team=True)

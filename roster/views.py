@@ -14,7 +14,8 @@ def member_list(request):
     filters = MemberFilterForm(request.GET, request.user)
     members = filters.filter(members)
     # RO-2: in each section, Active first, then On Break, then Inactive; within a status, Praise Team
-    # members (their current flag) before the others, then by name.
+    # members (their current flag) before the others, then by name. `not flag` is the sort key because
+    # False sorts before True, so members on the team come first; no flag at all counts as not on it.
     # Rank follows the order the statuses are declared in `Status` (Active, On Break, Inactive).
     status_rank = {status: rank for rank, status in enumerate(Status.values)}
     members = sorted(
