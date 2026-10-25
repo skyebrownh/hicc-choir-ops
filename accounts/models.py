@@ -35,7 +35,10 @@ class Account(AbstractBaseUser):
 
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=20, choices=Role.choices)
-    # Section leaders only; one or more. The link to a member is added with the account pages (#13).
+    # AC-6: empty for the director and Skye, who are not choir members. One-to-one, so a member has
+    # at most one account. SET_NULL: deleting a member must not delete the person's way in.
+    member = models.OneToOneField("roster.Member", null=True, blank=True, on_delete=models.SET_NULL)
+    # Section leaders only; one or more.
     sections = ArrayField(
         models.CharField(max_length=10, choices=Section.choices),
         default=list,
@@ -54,6 +57,15 @@ class Account(AbstractBaseUser):
 
     def __str__(self):
         return self.email
+
+    @property
+    def display_name(self):
+        # AC-6: an admin with no member has no name, so the list falls back to the email.
+        return self.member.name if self.member else self.email
+
+    @property
+    def section_labels(self):
+        return [Section(value).label for value in self.sections]
 
     @property
     def is_admin(self):

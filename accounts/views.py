@@ -5,7 +5,7 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
 from accounts import codes, ratelimit
-from accounts.forms import CodeForm, EmailForm
+from accounts.forms import AccountForm, CodeForm, EmailForm
 from accounts.models import Account, Role
 from accounts.permissions import role_required
 
@@ -95,3 +95,21 @@ def week_ahead(request):
 def attendance_home(request):
     """AC-4: section leaders' home page. A placeholder: later issues add their sections' attendance."""
     return render(request, "accounts/attendance_home.html")
+
+
+@role_required(Role.ADMIN)
+def account_list(request):
+    """AC-5: admins see every account: admins first, then leaders, each by name (or email when there's no member)."""
+    accounts = Account.objects.select_related("member")
+    accounts = sorted(accounts, key=lambda a: (not a.is_admin, a.display_name.lower()))
+    return render(request, "accounts/account_list.html", {"accounts": accounts})
+
+
+@role_required(Role.ADMIN)
+def account_add(request):
+    """AC-5, AC-6: admins give a member an account, or make an admin with no member."""
+    form = AccountForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        return redirect("account-list")
+    return render(request, "accounts/account_form.html", {"form": form, "title": "Add an account"})

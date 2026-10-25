@@ -15,6 +15,7 @@ from django.utils import timezone
 
 from accounts import email as resend
 from accounts.models import Account, Role, SignInCode
+from roster.tests import make_member
 
 # Django's default hasher is deliberately slow; MD5 keeps every code check fast in tests.
 FAST_HASHER = override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
@@ -508,3 +509,44 @@ class RateLimitTests(TestCase):
         response = self.request_code("guess20@example.com", HTTP_X_FORWARDED_FOR="1.2.3.99, 203.0.113.7")
 
         self.assertContains(response, "Too many requests", status_code=429)
+
+
+class AccountPagesTests(TestCase):
+    """AC-5, AC-6: admins manage accounts on our own pages. Signed in as a role, through the test client."""
+
+    def setUp(self):
+        self.admin = Account.objects.create_superuser("admin@example.com")
+        self.client.force_login(self.admin)
+
+    def test_ac5_admin_sees_admins_first_then_leaders_by_name(self):
+        sophie = make_member("Sophie Reed", "soprano")
+        amy = make_member("Amy Walker", "alto")
+        Account.objects.create_user("sophie@example.com", sections=["soprano"], member=sophie)
+        Account.objects.create_user("amy@example.com", sections=["alto", "tenor"], member=amy)
+
+        response = self.client.get("/accounts/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [a.email for a in response.context["accounts"]],
+            ["admin@example.com", "amy@example.com", "sophie@example.com"],
+        )
+
+    def add(self, **fields):
+        return self.client.post("/accounts/new/", fields)
+
+    def test_ac5_admin_gives_a_member_an_account_as_a_leader_with_one_section(self):
+        member = make_member("Sophie Reed", "soprano")
+
+        response = self.add(email="sophie@example.com", role="section_leader", member=member.pk, sections=["soprano"])
+
+        self.assertRedirects(response, "/accounts/")
+        account = Account.objects.get(email="sophie@example.com")
+        self.assertEqual((account.role, account.sections, account.member), (Role.SECTION_LEADER, ["soprano"], member))
+
+    def test_ac5_a_leader_can_cover_several_sections(self):
+        member = make_member("Tom Fisher", "tenor")
+
+        self.add(email="tom@example.com", role="section_leader", member=member.pk, sections=["tenor", "bass"])
+
+        self.assertCountEqual(Account.objects.get(email="tom@example.com").sections, ["tenor", "bass"])
