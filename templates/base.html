@@ -20,6 +20,8 @@
         <button type="submit" class="flex min-h-11 items-center px-1 font-medium text-gray-600 hover:text-gray-900">Sign out</button>
       </form>
     </div>
+    {# AC-4: who is signed in, on every page, so nobody wonders whose account they are using. #}
+    <p class="mx-auto max-w-2xl px-4 muted">Signed in as {{ user.display_name }}</p>
     <nav aria-label="Main" class="mx-auto flex max-w-2xl gap-6 px-4">
       {# The current section is marked by colour, a thicker underline and aria-current, not colour alone. #}
       {# AC-5: admins only. The server checks the role too (role_required); hiding the link is just tidiness. #}

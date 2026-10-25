@@ -724,6 +724,28 @@ class AccountPagesTests(TestCase):
 
         self.assertLess(page.index('href="/accounts/"'), page.index('href="/members/"'))
 
+    def test_ac4_every_page_says_who_is_signed_in_by_member_name_or_email(self):
+        self.assertContains(self.client.get("/week/"), "Signed in as admin@example.com")
+
+        leader = self.make_leader()
+        self.client.force_login(leader)
+
+        self.assertContains(self.client.get("/attendance/"), "Signed in as Sophie Reed")
+
+    def test_ac4_the_signed_in_line_is_not_shown_to_visitors(self):
+        self.client.logout()
+
+        self.assertNotContains(self.client.get("/signin/"), "Signed in as")
+
+    def test_ac5_the_list_marks_your_own_account_as_you(self):
+        self.make_leader()
+
+        listing = self.client.get("/accounts/").content.decode()
+
+        # Only the admin's own row: the leader's row has no marker.
+        self.assertEqual(listing.count(">You<"), 1)
+        self.assertLess(listing.index(">You<"), listing.index("Sophie Reed"))
+
 
 class AccountPagePermissionTests(TestCase):
     """AC-5: a section leader asking for an account page gets "not found"; a visitor is sent to sign in."""
