@@ -97,7 +97,7 @@ The accounts app replaces Django's user model, which can't be swapped once migra
 
 ## Scheduled jobs
 
-Events for the current week and the next 4 are created by `python manage.py create_events` (AT-1). It is safe to rerun, and admins can also press **Create upcoming events** on the Events page. Railway runs it every day as a second service, because the app's own service can't run on a schedule:
+Events for the current week and the next 4 are created by `python manage.py create_events` (AT-1). It is safe to rerun, and admins can also press **Add the next few weeks of events** at the bottom of the Events page. Railway runs it every day as a second service, because the app's own service can't run on a schedule:
 
 1. In the Railway project, add a service from this same GitHub repo, and name it e.g. `hicc-choir-ops-events`.
 2. Give it the same variables as the app service (at least `SECRET_KEY` and `DATABASE_URL`), by referencing the app service's variables.
