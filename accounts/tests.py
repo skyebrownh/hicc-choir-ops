@@ -519,19 +519,22 @@ class AccountPagesTests(TestCase):
         self.admin = Account.objects.create_superuser("admin@example.com")
         self.client.force_login(self.admin)
 
-    def test_ac5_admin_sees_admins_first_then_leaders_by_name(self):
-        sophie = make_member("Sophie Reed", "soprano")
-        amy = make_member("Amy Walker", "alto")
-        Account.objects.create_user("sophie@example.com", sections=["soprano"], member=sophie)
-        Account.objects.create_user("amy@example.com", sections=["alto", "tenor"], member=amy)
+    def test_ac5_the_list_groups_admins_then_leaders_and_sorts_leaders_by_section_then_name(self):
+        for name, sections in [("Zed Young", ["alto"]), ("Amy Walker", ["alto", "tenor"]), ("Sophie Reed", ["soprano"]), ("Tim Hayes", ["bass", "tenor"])]:
+            member = make_member(name, sections[0])
+            Account.objects.create_user(f"{name.split()[0].lower()}@example.com", sections=sections, member=member)
 
         response = self.client.get("/accounts/")
 
-        self.assertEqual(response.status_code, 200)
         self.assertEqual(
-            [a.email for a in response.context["accounts"]],
-            ["admin@example.com", "amy@example.com", "sophie@example.com"],
+            [(label, [a.display_name for a in accounts]) for label, accounts in response.context["groups"]],
+            [
+                ("Admins", ["admin@example.com"]),
+                ("Section leaders", ["Sophie Reed", "Amy Walker", "Zed Young", "Tim Hayes"]),
+            ],
         )
+        # The headings say the role, so rows carry no role badge.
+        self.assertNotContains(response, ">Section leader<")
 
     def add(self, **fields):
         return self.client.post("/accounts/new/", fields)

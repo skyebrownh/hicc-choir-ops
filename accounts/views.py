@@ -7,7 +7,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts import codes, ratelimit
 from accounts.forms import AccountForm, CodeForm, EmailForm
-from accounts.models import Account, Role
+from accounts.models import Account, Role, Section
 from accounts.permissions import role_required
 
 logger = logging.getLogger(__name__)
@@ -100,10 +100,20 @@ def attendance_home(request):
 
 @role_required(Role.ADMIN)
 def account_list(request):
-    """AC-5: admins see every account: admins first, then leaders, each by name (or email when there's no member)."""
-    accounts = Account.objects.select_related("member")
-    accounts = sorted(accounts, key=lambda a: (not a.is_admin, a.display_name.lower()))
-    return render(request, "accounts/account_list.html", {"accounts": accounts})
+    """AC-5: admins see every account, grouped by role: admins by name, then leaders by section and name.
+
+    A leader sorts under their first section in the choir's usual order (Soprano, Alto, Tenor, Bass);
+    a member-less admin sorts by email.
+    """
+    accounts = list(Account.objects.select_related("member"))
+    section_rank = {section: rank for rank, section in enumerate(Section.values)}
+    admins = sorted((a for a in accounts if a.is_admin), key=lambda a: a.display_name.lower())
+    leaders = sorted(
+        (a for a in accounts if not a.is_admin),
+        key=lambda a: (min((section_rank[s] for s in a.sections), default=len(section_rank)), a.display_name.lower()),
+    )
+    groups = [("Admins", admins), ("Section leaders", leaders)]
+    return render(request, "accounts/account_list.html", {"groups": [g for g in groups if g[1]]})
 
 
 @role_required(Role.ADMIN)
