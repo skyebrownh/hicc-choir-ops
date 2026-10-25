@@ -151,6 +151,7 @@ class SignInTests(TestCase):
         html = self.html_part()
         self.assertIn(sent_code(), html)
         self.assertIn("Your sign-in code", html)
+        self.assertIn("Hello,", html)
         self.assertIn("It works for 10 minutes.", html)
         self.assertIn("If you didn't ask for this, ignore this email.", html)
 
