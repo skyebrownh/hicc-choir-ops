@@ -191,7 +191,7 @@ The real list is imported once, into production's database. Two things make it d
 
 1. Check the file works first: run the command locally against `seed basic` data (see Getting started; `seed` resets your local members, so only do this on fake data). Use names that aren't in the seed data, or the rows will be reported as already on the roster. A bad row in production just stops the import with nothing added, but finding it locally is quicker.
 2. Make a fresh backup, so there is a copy from just before the import: `~/Backups/hicc-choir-ops/backup.sh now`
-3. Send the file and run the import. `cat` feeds the CSV into `railway ssh` as input (the same way the restore below feeds in a backup), and `/dev/stdin` tells the command to read its file from that input. The file is never saved on Railway, and the member details are not part of the command line, so they are not in your shell history either:
+3. Send the file and run the import, from the project folder (so the path to the CSV is right). `cat` feeds the CSV into `railway ssh` as input (the same way the restore above feeds in a backup), and `/dev/stdin` tells the command to read its file from that input. The command writes no copy of the file, and the member details are not part of the command line, so they are not in your shell history either. Whether Railway keeps any record of what passes through an ssh session hasn't been checked:
 
    ```sh
    cat private-data/members.csv | railway ssh --service hicc-choir-ops --environment production -- python manage.py import_members /dev/stdin
