@@ -627,7 +627,10 @@ class AccountPagesTests(TestCase):
         page = self.client.get(f"/accounts/{leader.pk}/edit/")
         self.assertContains(page, "Admins see all sections")
         self.assertContains(page, 'id="section-boxes" hidden')
-        self.assertNotContains(self.client.get("/accounts/"), "Soprano</span>")
+        # The admin kept Soprano and Alto, yet the list shows no section badge for them.
+        listing = self.client.get("/accounts/").content.decode()
+        self.assertNotIn(">Soprano<", listing)
+        self.assertNotIn(">Alto<", listing)
 
     def test_ac5_changing_an_admin_back_to_leader_needs_a_section_and_shows_the_stored_ones(self):
         leader = self.make_leader(sections=["soprano"])
