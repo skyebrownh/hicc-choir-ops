@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from roster.events import create_upcoming_events
+from roster.events import created_message, create_upcoming_events
 
 
 class Command(BaseCommand):
@@ -8,4 +8,4 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         count = create_upcoming_events()
-        self.stdout.write(f"Created {count} {'event' if count == 1 else 'events'}.")
+        self.stdout.write(created_message(count))

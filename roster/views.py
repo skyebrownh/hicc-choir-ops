@@ -6,7 +6,7 @@ from django.views.decorators.http import require_POST
 
 from accounts.models import Role, Section
 from accounts.permissions import role_required
-from roster.events import create_upcoming_events
+from roster.events import created_message, create_upcoming_events
 from roster.forms import EventForm, MemberFilterForm, MemberForm, PraiseTeamChangeForm, SectionChangeForm, StatusChangeForm
 from roster.models import Event, Member, PraiseTeamChange, SectionChange, Status, StatusChange, date_format
 
@@ -180,7 +180,7 @@ def event_past(request):
 def events_create_upcoming(request):
     """AT-1: the button that does what the scheduled command does, and says how many events were new."""
     count = create_upcoming_events()
-    messages.success(request, f"Created {count} {'event' if count == 1 else 'events'}.")
+    messages.success(request, created_message(count))
     return redirect("event-list")
 
 

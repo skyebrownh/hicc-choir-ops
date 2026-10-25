@@ -1,3 +1,4 @@
+import calendar
 from datetime import timedelta
 
 from django.utils import timezone
@@ -7,12 +8,12 @@ from roster.models import Event
 # AT-1: the current week plus the next 4.
 WEEKS_AHEAD = 5
 
-# AT-1: (kind, days after Monday, who is expected).
+# AT-1: (kind, weekday, who is expected). A week starts on Monday (weekday 0), so a weekday is also its days after Monday.
 WEEKLY_SCHEDULE = [
-    (Event.Kind.WEDNESDAY, 2, Event.Expected.PRAISE_TEAM),
-    (Event.Kind.SATURDAY, 5, Event.Expected.EVERYONE),
+    (Event.Kind.WEDNESDAY, calendar.WEDNESDAY, Event.Expected.PRAISE_TEAM),
+    (Event.Kind.SATURDAY, calendar.SATURDAY, Event.Expected.EVERYONE),
     # One event covers both services (SPEC.md, Business rules).
-    (Event.Kind.SUNDAY, 6, Event.Expected.EVERYONE),
+    (Event.Kind.SUNDAY, calendar.SUNDAY, Event.Expected.EVERYONE),
 ]
 
 
@@ -27,8 +28,13 @@ def create_upcoming_events(today=None):
     monday = today - timedelta(days=today.weekday())
     created = 0
     for week in range(WEEKS_AHEAD):
-        for kind, offset, expected in WEEKLY_SCHEDULE:
-            day = monday + timedelta(weeks=week, days=offset)
+        for kind, weekday, expected in WEEKLY_SCHEDULE:
+            day = monday + timedelta(weeks=week, days=weekday)
             _, is_new = Event.objects.get_or_create(date=day, kind=kind, defaults={"expected": expected})
             created += is_new
     return created
+
+
+def created_message(count):
+    """AT-1: "Created 3 events." for the command's output and the button's message alike."""
+    return f"Created {count} {'event' if count == 1 else 'events'}."
