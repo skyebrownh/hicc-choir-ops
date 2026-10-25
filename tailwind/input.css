@@ -99,16 +99,20 @@
   .btn-danger {
     @apply flex min-h-11 w-full items-center justify-center rounded-md px-3.5 py-2.5 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 bg-red-600 text-white shadow-xs hover:bg-red-500;
   }
-  /* AT-1: one color per weekly kind, so rows are told apart at a glance. The word is always shown too, so the
-     kind is never given by color alone. Dark 800/900 text on the 50 shade holds well over AA. */
-  .badge-midweek {
-    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium bg-blue-50 text-blue-800;
+  /* AT-1, AT-2: a regular kind is the gray .badge with a colored dot (darker 700 shades, as for status); a special
+     event or extra rehearsal is the one solid pill, so the exceptions stand out. The word is always shown too, so
+     the kind is never given by color alone. White on indigo-600 is 6.3:1. */
+  .kind-dot-wednesday {
+    @apply bg-blue-700;
   }
-  .badge-rehearsal {
-    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium bg-amber-50 text-amber-900;
+  .kind-dot-saturday {
+    @apply bg-amber-700;
   }
-  .badge-services {
-    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium bg-purple-50 text-purple-800;
+  .kind-dot-sunday {
+    @apply bg-purple-700;
+  }
+  .badge-special {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium bg-indigo-600 text-white;
   }
   .badge-accent {
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium bg-indigo-50 text-indigo-700;

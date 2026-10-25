@@ -2009,7 +2009,7 @@ class EventListLayoutTests(TestCase):
         body = self.page()
 
         # The badge sits in the same line as the date, not on a line of its own.
-        self.assertRegex(body, r"<p[^>]*>\s*Sat, Nov 7\s*<span[^>]*>Rehearsal</span>\s*</p>")
+        self.assertRegex(body, r'<p[^>]*>\s*Sat, Nov 7\s*<span class="badge">.*?Rehearsal</span>\s*</p>')
 
     def test_at1_the_kinds_are_called_midweek_rehearsal_and_services(self):
         make_event(date(2026, 11, 4), kind=Event.Kind.WEDNESDAY, name="")
@@ -2021,18 +2021,26 @@ class EventListLayoutTests(TestCase):
         for label in ["Midweek</span>", "Rehearsal</span>", "Services</span>"]:
             self.assertIn(label, body)
 
-    def test_at1_each_kind_has_its_own_badge_color(self):
+    def test_at1_each_regular_kind_has_a_quiet_badge_with_its_own_colored_dot(self):
         make_event(date(2026, 11, 4), kind=Event.Kind.WEDNESDAY, name="")
         make_event(date(2026, 11, 7), kind=Event.Kind.SATURDAY, name="")
         make_event(date(2026, 11, 8), kind=Event.Kind.SUNDAY, name="")
-        make_event(date(2026, 11, 9))
 
         body = self.page()
 
-        for badge in ["badge-midweek", "badge-rehearsal", "badge-services"]:
-            self.assertEqual(body.count(f'class="{badge}"'), 1, badge)
-        # Special events and extra rehearsals keep the plain gray badge.
-        self.assertIn('class="badge">Special event</span>', body)
+        for kind in ["wednesday", "saturday", "sunday"]:
+            self.assertEqual(body.count(f"kind-dot-{kind}"), 1, kind)
+        self.assertNotIn("badge-special", body)
+
+    def test_at2_special_events_and_extra_rehearsals_get_the_strong_badge(self):
+        make_event(date(2026, 12, 5), name="Concert")
+        make_event(date(2026, 12, 2), kind=Event.Kind.EXTRA, name="Run-through")
+
+        body = self.page()
+
+        self.assertIn('class="badge-special">Special event</span>', body)
+        self.assertIn('class="badge-special">Extra rehearsal</span>', body)
+        self.assertNotIn("kind-dot", body)
 
     def test_at2_a_special_event_shows_its_name_its_date_with_weekday_and_a_kind_badge(self):
         make_event(date(2026, 12, 5), name="Christmas concert")
@@ -2146,3 +2154,188 @@ class RestoreEventTests(TestCase):
         self.assertEqual(self.client.post(f"/events/{event.pk}/restore/").status_code, 404)
         event.refresh_from_db()
         self.assertTrue(event.canceled)
+
+
+class ExtraRehearsalNameTests(TestCase):
+    def setUp(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+
+    def test_at2_an_extra_rehearsal_does_not_need_a_name(self):
+        response = self.client.post(
+            "/events/new/", {"date": "2026-12-02", "kind": "extra", "name": "", "expected": "everyone"}
+        )
+
+        self.assertRedirects(response, "/events/")
+        self.assertEqual(Event.objects.get().name, "")
+
+    def test_at2_an_unnamed_extra_rehearsal_reads_like_a_regular_event_with_its_date_and_badge(self):
+        make_event(date(2026, 12, 2), kind=Event.Kind.EXTRA, name="")
+
+        with fake_now(2026, 11, 1):
+            body = self.client.get("/events/").content.decode()
+
+        self.assertRegex(body, r'<p[^>]*>\s*Wed, Dec 2\s*<span class="badge-special">Extra rehearsal</span>\s*</p>')
+
+    def test_at2_a_named_extra_rehearsal_shows_its_name_with_the_date_below(self):
+        make_event(date(2026, 12, 2), kind=Event.Kind.EXTRA, name="Band run-through")
+
+        with fake_now(2026, 11, 1):
+            body = self.client.get("/events/").content.decode()
+
+        self.assertRegex(body, r'<p[^>]*>\s*Band run-through\s*<span class="badge-special">Extra rehearsal</span>\s*</p>')
+
+    def test_at2_a_special_event_still_needs_a_name(self):
+        response = self.client.post(
+            "/events/new/", {"date": "2026-12-05", "kind": "special", "name": "", "expected": "everyone"}
+        )
+
+        self.assertContains(response, "This field is required")
+        self.assertFalse(Event.objects.exists())
+
+
+class EventNotesTests(TestCase):
+    def setUp(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+
+    def test_at2_notes_are_saved_with_a_new_event(self):
+        self.client.post(
+            "/events/new/",
+            {"date": "2026-12-05", "kind": "special", "name": "Concert", "expected": "everyone", "notes": "Wear black"},
+        )
+
+        self.assertEqual(Event.objects.get().notes, "Wear black")
+
+    def test_at2_notes_are_optional(self):
+        response = self.client.post(
+            "/events/new/", {"date": "2026-12-05", "kind": "special", "name": "Concert", "expected": "everyone"}
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Event.objects.get().notes, "")
+
+    def test_at2_notes_show_under_the_date_on_the_events_and_past_pages(self):
+        make_event(date(2026, 11, 7), name="Upcoming", notes="Bring folders")
+        make_event(date(2026, 10, 30), name="Earlier", notes="Was moved to the hall")
+
+        with fake_now(2026, 11, 1):
+            events_page = self.client.get("/events/")
+            past_page = self.client.get("/events/past/")
+
+        self.assertContains(events_page, "Bring folders")
+        self.assertContains(past_page, "Was moved to the hall")
+
+
+class EditEventTests(TestCase):
+    def setUp(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+
+    def test_at2_the_edit_page_shows_the_current_values(self):
+        event = make_event(date(2026, 11, 7), name="Concert", notes="Wear black")
+
+        with fake_now(2026, 11, 1):
+            response = self.client.get(f"/events/{event.pk}/edit/")
+
+        self.assertContains(response, 'value="Concert"')
+        self.assertContains(response, "Wear black")
+
+    def test_at2_editing_changes_the_name_who_is_expected_and_the_notes(self):
+        event = make_event(date(2026, 11, 7), name="Concert")
+
+        with fake_now(2026, 11, 1):
+            response = self.client.post(
+                f"/events/{event.pk}/edit/", {"name": "Winter concert", "expected": "praise_team", "notes": "Doors at 6"}
+            )
+
+        self.assertRedirects(response, "/events/")
+        event.refresh_from_db()
+        self.assertEqual((event.name, event.expected, event.notes), ("Winter concert", "praise_team", "Doors at 6"))
+
+    def test_at2_editing_never_changes_the_date_or_kind(self):
+        event = make_event(date(2026, 11, 7), name="Concert")
+
+        with fake_now(2026, 11, 1):
+            self.client.post(
+                f"/events/{event.pk}/edit/",
+                {"date": "2026-12-25", "kind": "extra", "name": "Concert", "expected": "everyone"},
+            )
+
+        event.refresh_from_db()
+        self.assertEqual((event.date, event.kind), (date(2026, 11, 7), Event.Kind.SPECIAL))
+
+    def test_at2_a_regular_event_can_change_who_is_expected_and_its_notes_but_has_no_name(self):
+        event = make_event(date(2026, 11, 7), kind=Event.Kind.SATURDAY, name="")
+
+        with fake_now(2026, 11, 1):
+            page = self.client.get(f"/events/{event.pk}/edit/")
+            self.client.post(f"/events/{event.pk}/edit/", {"name": "Sneaky", "expected": "praise_team", "notes": "Sopranos only"})
+
+        self.assertNotContains(page, 'name="name"')
+        event.refresh_from_db()
+        self.assertEqual((event.name, event.expected, event.notes), ("", "praise_team", "Sopranos only"))
+
+    def test_at2_editing_keeps_the_name_rules(self):
+        special = make_event(date(2026, 11, 7), name="Concert")
+        extra = make_event(date(2026, 11, 8), kind=Event.Kind.EXTRA, name="Run-through")
+
+        with fake_now(2026, 11, 1):
+            no_name = self.client.post(f"/events/{special.pk}/edit/", {"name": "", "expected": "everyone"})
+            cleared = self.client.post(f"/events/{extra.pk}/edit/", {"name": "", "expected": "everyone"})
+
+        self.assertContains(no_name, "This field is required")
+        special.refresh_from_db()
+        self.assertEqual(special.name, "Concert")
+        self.assertEqual(cleared.status_code, 302)
+        extra.refresh_from_db()
+        self.assertEqual(extra.name, "")
+
+    def test_at2_a_canceled_upcoming_event_can_be_edited_and_stays_canceled(self):
+        event = make_event(date(2026, 11, 7), name="Concert", canceled=True)
+
+        with fake_now(2026, 11, 1):
+            self.client.post(f"/events/{event.pk}/edit/", {"name": "Concert", "expected": "everyone", "notes": "Moved"})
+
+        event.refresh_from_db()
+        self.assertEqual(event.notes, "Moved")
+        self.assertTrue(event.canceled)
+
+    def test_at2_a_past_event_cannot_be_edited(self):
+        event = make_event(date(2026, 10, 30), name="Earlier")
+
+        with fake_now(2026, 11, 1):
+            self.assertEqual(self.client.get(f"/events/{event.pk}/edit/").status_code, 404)
+            self.assertEqual(self.client.post(f"/events/{event.pk}/edit/", {"name": "X", "expected": "everyone"}).status_code, 404)
+
+        event.refresh_from_db()
+        self.assertEqual(event.name, "Earlier")
+
+    def test_at2_only_upcoming_rows_offer_edit(self):
+        upcoming = make_event(date(2026, 11, 7), name="Upcoming")
+        earlier = make_event(date(2026, 10, 30), name="Earlier")
+
+        with fake_now(2026, 11, 1):
+            events_page = self.client.get("/events/")
+            past_page = self.client.get("/events/past/")
+
+        self.assertContains(events_page, f'href="/events/{upcoming.pk}/edit/"')
+        self.assertNotContains(past_page, f'href="/events/{earlier.pk}/edit/"')
+
+    def test_at2_leaders_get_not_found_and_signed_out_visitors_go_to_sign_in(self):
+        event = make_event(date(2026, 12, 5))
+        self.client.logout()
+        self.assertTrue(self.client.post(f"/events/{event.pk}/edit/")["Location"].startswith("/signin/"))
+
+        self.client.force_login(Account.objects.create_user("leader@example.com", sections=["alto"]))
+        self.assertEqual(self.client.get(f"/events/{event.pk}/edit/").status_code, 404)
+        self.assertEqual(self.client.post(f"/events/{event.pk}/edit/", {"name": "X", "expected": "everyone"}).status_code, 404)
+
+
+class EventAdminListTests(TestCase):
+    def test_the_admin_event_list_does_not_repeat_the_kind_as_a_title(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+        make_event(date(2026, 11, 7), kind=Event.Kind.SATURDAY, name="")
+
+        response = self.client.get("/admin/roster/event/")
+
+        self.assertContains(response, "column-kind")
+        self.assertContains(response, "column-name")
+        self.assertNotContains(response, "column-title")

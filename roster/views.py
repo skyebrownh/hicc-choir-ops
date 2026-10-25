@@ -10,7 +10,7 @@ from django.views.decorators.http import require_POST
 from accounts.models import Role, Section
 from accounts.permissions import role_required
 from roster.events import created_message, create_upcoming_events
-from roster.forms import EventForm, MemberFilterForm, MemberForm, PraiseTeamChangeForm, SectionChangeForm, StatusChangeForm
+from roster.forms import EventEditForm, EventForm, MemberFilterForm, MemberForm, PraiseTeamChangeForm, SectionChangeForm, StatusChangeForm
 from roster.models import Event, Member, PraiseTeamChange, SectionChange, Status, StatusChange, date_format
 
 
@@ -216,6 +216,22 @@ def event_add(request):
         form.save()
         return redirect("event-list")
     return render(request, "roster/event_form.html", {"form": form, "title": "Add an event"})
+
+
+@role_required(Role.ADMIN)
+def event_edit(request, pk):
+    """AT-2: admins change an upcoming event's name, who is expected and notes (canceled ones too).
+
+    Only today or later: who was expected at a past event feeds rates and flags, so it isn't edited here
+    (fix it in the Django admin).
+    """
+    event = get_object_or_404(Event, pk=pk, date__gte=timezone.localdate())
+    form = EventEditForm(request.POST or None, instance=event)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, f"{event.title} on {date_format(event.date)} is updated.")
+        return redirect("event-list")
+    return render(request, "roster/event_form.html", {"form": form, "event": event, "title": "Edit event"})
 
 
 @role_required(Role.ADMIN)

@@ -121,6 +121,6 @@ class MemberAdmin(ModelAdmin):
 class EventAdmin(ModelAdmin):
     """AT-1, AT-2, AT-3: Skye's tool for fixing events the app's own pages won't touch, such as un-canceling or a past date."""
 
-    list_display = ["date", "title", "kind", "expected", "canceled"]
+    list_display = ["date", "kind", "name", "expected", "canceled"]
     list_filter = ["kind", "canceled"]
     date_hierarchy = "date"

@@ -245,19 +245,13 @@ class Event(models.Model):
         EVERYONE = "everyone", "Everyone"
         PRAISE_TEAM = "praise_team", "Praise Team"
 
-    # AT-1: each weekly kind has its own badge color (classes in tailwind/input.css). Special events and
-    # extra rehearsals keep the plain gray badge.
-    KIND_BADGE_CLASSES = {
-        Kind.WEDNESDAY: "badge-midweek",
-        Kind.SATURDAY: "badge-rehearsal",
-        Kind.SUNDAY: "badge-services",
-    }
-
     date = models.DateField()
     kind = models.CharField(max_length=10, choices=Kind.choices)
-    # Special events and extra rehearsals are named; the weekly ones are not.
+    # AT-2: a special event is always named, an extra rehearsal may be, and the weekly ones never are.
     name = models.CharField(max_length=200, blank=True)
     expected = models.CharField(max_length=12, choices=Expected.choices)
+    # AT-2: anything worth knowing about this one event ("Wear black", "Doors at 6"). Not the attendance notes (AT-6).
+    notes = models.TextField(blank=True)
     # AT-3: canceled events stay in the database but drop out of sheets, rates and flags.
     canceled = models.BooleanField(default=False)
 
@@ -281,11 +275,6 @@ class Event(models.Model):
     def is_weekly(self):
         # AT-1: made by the scheduled command, so told apart by kind alone (they have no name).
         return self.kind in (self.Kind.WEDNESDAY, self.Kind.SATURDAY, self.Kind.SUNDAY)
-
-    @property
-    def badge_class(self):
-        # AT-1: the CSS class for this kind's badge on the Events pages.
-        return self.KIND_BADGE_CLASSES.get(self.kind, "badge")
 
     @property
     def title(self):

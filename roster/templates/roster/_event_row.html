@@ -1,21 +1,24 @@
 {# AT-1, AT-3: one event in a list. Used by the Events page and the Past events page so the two can't drift apart. #}
 <li class="flex min-h-14 items-center justify-between gap-3 px-4 py-3">
   <div>
-    {# A regular event is its date with its kind badge beside it. A special event is named, with its date below. #}
-    {% if event.is_weekly %}
-    <p class="font-medium text-gray-900">{{ event.date|date:"D, M j" }}
-      <span class="{{ event.badge_class }}">{{ event.get_kind_display }}</span></p>
-    {% else %}
-    <p class="font-medium text-gray-900">{{ event.name }}
-      <span class="{{ event.badge_class }}">{{ event.get_kind_display }}</span></p>
+    {# A nameless event (every regular one, and an unnamed extra rehearsal) is its date with its kind badge beside it. A named one shows the name, with its date below. #}
+    {% if event.name %}
+    <p class="flex flex-wrap items-center gap-x-3 gap-y-1 font-medium text-gray-900">{{ event.name }}
+      {% include "components/_kind_badge.html" %}</p>
     <p class="muted">{{ event.date|date:"D, M j" }}</p>
+    {% else %}
+    <p class="flex flex-wrap items-center gap-x-3 gap-y-1 font-medium text-gray-900">{{ event.date|date:"D, M j" }}
+      {% include "components/_kind_badge.html" %}</p>
     {% endif %}
     {% if event.expected == "praise_team" %}<p class="muted">Praise Team only</p>{% endif %}
+    {# AT-2: this event's own note, as typed. #}
+    {% if event.notes %}<p class="muted">{{ event.notes|linebreaksbr }}</p>{% endif %}
   </div>
   <div class="flex flex-wrap items-center justify-end gap-2">
     {% if event.canceled %}{% include "components/_canceled_badge.html" %}{% endif %}
     {# AT-3: set by the Events page only. The views refuse a past event anyway. #}
     {% if can_change %}
+    <a href="{% url 'event-edit' event.pk %}" class="btn-quiet">Edit</a>
     {% if event.canceled %}
     <a href="{% url 'event-restore' event.pk %}" class="btn-quiet">Restore</a>
     {% else %}
