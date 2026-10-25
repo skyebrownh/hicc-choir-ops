@@ -1,0 +1,10 @@
+{% comment %}
+  The down-arrow drawn over each dropdown (heritage-media-availability's, from Tailwind Plus's "simple native"
+  select). The select hides the browser's own arrow (.select in tailwind/input.css) and this sits in the same
+  grid cell, on the right. pointer-events-none lets taps pass through to the select underneath, so the phone's
+  native picker still opens. aria-hidden keeps screen readers from announcing it. size-5 at every width, to
+  match the 16px text. data-select-chevron is only a hook for the tests.
+{% endcomment %}
+<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" data-select-chevron class="pointer-events-none col-start-1 row-start-1 mr-2 size-5 self-center justify-self-end text-gray-500">
+  <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" fill-rule="evenodd" />
+</svg>

@@ -47,6 +47,13 @@
   .input {
     @apply block min-h-11 w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600;
   }
+  /* A native <select> with its own arrow drawn over it (templates/components/_select_chevron.html), so it
+     looks the same on iPhone Safari, Android Chrome and desktop, yet phones still open their own picker.
+     appearance-none hides the browser's arrow; col-start-1/row-start-1 put select and arrow in one grid cell
+     (the wrapper is `grid grid-cols-1`); pr-10 keeps long text from running under the arrow. */
+  .select {
+    @apply col-start-1 row-start-1 block min-h-11 w-full appearance-none rounded-md bg-white py-1.5 pr-10 pl-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 has-[option[value='']:checked]:text-gray-500 *:text-gray-900;
+  }
   .field-error {
     @apply mt-2 text-red-600;
   }

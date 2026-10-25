@@ -13,7 +13,7 @@
   {% for field in filters %}
   <div>
     <label for="{{ field.id_for_label }}" class="label">{{ field.label }}</label>
-    <div class="mt-1">{{ field }}</div>
+    <div class="mt-1 grid grid-cols-1">{{ field }}{% include "components/_select_chevron.html" %}</div>
   </div>
   {% endfor %}
   <noscript><button type="submit" class="btn-primary">Apply</button></noscript>
