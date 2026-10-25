@@ -1431,3 +1431,57 @@ class ImportMembersTests(TestCase):
     def test_ro5_an_empty_file_is_a_clear_error(self):
         self.run_import("", expect_error=True)
         self.assertFalse(Member.objects.exists())
+
+
+class DropdownStyleTests(TestCase):
+    """Design polish (#49): every <select> gets the shared `select` look and a drawn arrow; other inputs don't."""
+
+    def setUp(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+        self.member = make_member(name="Ada Active", section="alto")
+        StatusChange.objects.create(member=self.member, status="active", effective_on=date(2026, 1, 1))
+
+    def assertSelects(self, response, count):
+        """`count` selects on the page, each with the select class and its own arrow."""
+        self.assertContains(response, "<select", count=count)
+        self.assertContains(response, 'class="select"', count=count)
+        self.assertContains(response, "data-select-chevron", count=count)
+
+    def test_the_three_roster_filters_get_the_select_look_and_arrow(self):
+        self.assertSelects(self.client.get("/members/"), 3)
+
+    def test_the_add_member_form_selects_get_the_select_look_and_arrow(self):
+        # Starting status and section.
+        self.assertSelects(self.client.get("/members/new/"), 2)
+
+    def test_each_change_form_select_gets_the_select_look_and_arrow(self):
+        for page in ["status", "section", "praise-team"]:
+            with self.subTest(page=page):
+                self.assertSelects(self.client.get(f"/members/{self.member.pk}/{page}/"), 1)
+
+    def test_other_inputs_get_neither_the_select_class_nor_an_arrow(self):
+        response = self.client.get("/members/new/")
+
+        # Name, phone, email and notes keep the text-input look; the checkbox is untouched.
+        self.assertContains(response, 'class="input"', count=4)
+        self.assertContains(response, 'class="size-6 accent-indigo-600"')
+        # The date field on a change form is a plain input too.
+        change = self.client.get(f"/members/{self.member.pk}/status/")
+        self.assertContains(change, 'type="date"')
+        self.assertContains(change, 'class="input"', count=1)
+
+    def test_the_arrow_lets_taps_through_and_is_hidden_from_screen_readers(self):
+        # pointer-events-none: a tap on the arrow reaches the select, so the native picker opens.
+        # Matched on the arrow's own tag, so the same classes elsewhere on the page can't satisfy it.
+        for page in ["/members/", "/members/new/"]:
+            with self.subTest(page=page):
+                response = self.client.get(page)
+                arrows = response.content.decode().count("data-select-chevron")
+                self.assertGreater(arrows, 0)
+                self.assertContains(response, 'aria-hidden="true" data-select-chevron class="pointer-events-none', count=arrows)
+
+    def test_the_built_css_has_the_select_rule(self):
+        # Catches a forgotten `bin/tailwindcss` rebuild: static/app.css is committed, never built on deploy.
+        css = (Path(__file__).resolve().parent.parent / "static" / "app.css").read_text()
+
+        self.assertIn(".select{", css)

@@ -9,6 +9,13 @@ from roster.models import Member, PraiseTeamChange, SectionChange, Status, Statu
 
 # Component classes from tailwind/input.css; `input` is 44px tall with 16px text (NFR).
 INPUT_CLASSES = "input"
+# Dropdowns use `select` instead: same size and text, plus room for the drawn arrow (see _select_chevron.html).
+SELECT_CLASSES = "select"
+
+
+def widget_classes(widget):
+    """The component class for a form widget: dropdowns get the arrow-ready look, everything else the text-input look."""
+    return SELECT_CLASSES if isinstance(widget, forms.Select) else INPUT_CLASSES
 
 
 class FirstSectionAndFlagForm(forms.ModelForm):
@@ -47,7 +54,7 @@ class MemberForm(FirstSectionAndFlagForm):
             if name == "initial_praise_team":
                 field.widget.attrs["class"] = "size-6 accent-indigo-600"
             else:
-                field.widget.attrs["class"] = INPUT_CLASSES
+                field.widget.attrs["class"] = widget_classes(field.widget)
         self.fields["phone"].widget.attrs["autocomplete"] = "off"
         self.fields["notes"].widget.attrs["rows"] = 3
 
@@ -65,7 +72,7 @@ class DatedChangeForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
-            field.widget.attrs["class"] = INPUT_CLASSES
+            field.widget.attrs["class"] = widget_classes(field.widget)
         # US Eastern "today" (settings.TIME_ZONE), not the server's UTC date.
         # (Set on `initial`, not the field: a form built on an instance starts from the instance's empty date.)
         if self.initial.get("effective_on") is None:
@@ -134,7 +141,7 @@ class MemberFilterForm(forms.Form):
         else:
             del self.fields["section"]
         for field in self.fields.values():
-            field.widget.attrs["class"] = INPUT_CLASSES
+            field.widget.attrs["class"] = widget_classes(field.widget)
 
     def _value(self, name):
         # RO-4: invalid values are missing from cleaned_data, which reads as the default.
