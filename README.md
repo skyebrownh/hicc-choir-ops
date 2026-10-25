@@ -95,6 +95,15 @@ The first address in the list is the newest, and it should be the phone's public
 
 The accounts app replaces Django's user model, which can't be swapped once migrations have run. Before the first deploy that includes it, reset the production database (this deletes its data: only the admin login exists so far), then after the deploy create the admin with `railway ssh --service hicc-choir-ops -- "python manage.py createsuperuser"` (it asks its questions in your terminal).
 
+## Scheduled jobs
+
+Events for the current week and the next 4 are created by `python manage.py create_events` (AT-1). It is safe to rerun, and admins can also press **Create upcoming events** on the Events page. Railway runs it every day as a second service, because the app's own service can't run on a schedule:
+
+1. In the Railway project, add a service from this same GitHub repo, and name it e.g. `hicc-choir-ops-events`.
+2. Give it the same variables as the app service (at least `SECRET_KEY` and `DATABASE_URL`), by referencing the app service's variables.
+3. In its Settings, set the **Start command** to `python manage.py create_events` and the **Cron schedule** to `0 9 * * *`. Railway schedules in UTC, so this is 4 or 5 in the morning US Eastern. Leave the **Healthcheck path** and **Pre-deploy command** empty: the service runs, exits, and waits for the next day.
+4. Check the first run in the service's deploy log: it should say `Created N events.`
+
 ## Backups
 
 Railway's Hobby plan has no database backups, so Skye's Mac makes them (#19). Every day, a scheduled job runs `pg_dump` inside production's Postgres service (`Postgres-KuxJ`) through the Railway CLI and saves a compressed copy in `~/Backups/hicc-choir-ops/`, keeping the newest 30. No database password is stored anywhere; it uses the Railway CLI's own login.

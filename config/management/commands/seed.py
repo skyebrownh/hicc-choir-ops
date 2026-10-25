@@ -6,7 +6,8 @@ from django.db import transaction
 from django.utils import timezone
 
 from accounts.models import Account, Role
-from roster.models import Member, PraiseTeamChange, SectionChange, StatusChange
+from roster.events import create_upcoming_events
+from roster.models import Event, Member, PraiseTeamChange, SectionChange, StatusChange
 
 # Fake names only, on example.com: this is development data and must never hold real people.
 BASIC_MEMBERS = [
@@ -56,6 +57,8 @@ def seed_basic():
                 StatusChange.objects.create(member=member, status=status, effective_on=today - timedelta(days=days_ago))
         else:
             StatusChange.objects.create(member=member, status=OTHER_STATUSES.get(name, "active"), effective_on=today)
+    # AT-1: this week's and the next 4 weeks' events. This week's earlier days are already past, so the Past events page has rows.
+    create_upcoming_events()
     # For trying the section-leader view by hand. The sign-in code prints in the server console.
     # AC-5: each leader is a member in one of their sections, as real leaders are.
     Account.objects.create_user("alto.leader@example.com", sections=["alto"], member=Member.objects.get(name="Alice Grant"))
@@ -85,6 +88,7 @@ class Command(BaseCommand):
         # All or nothing, so a failure part-way never leaves a half-wiped database.
         with transaction.atomic():
             Member.objects.all().delete()
+            Event.objects.all().delete()
             Account.objects.exclude(role=Role.ADMIN).delete()
             SCENARIOS[scenario]()
         if options["verbosity"]:

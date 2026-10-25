@@ -13,7 +13,7 @@ from django.utils import timezone
 from django.test import SimpleTestCase, TestCase, override_settings
 
 from accounts.models import Account, Role
-from roster.models import Member, StatusChange
+from roster.models import Event, Member, StatusChange
 from config.env import allowed_hosts
 
 
@@ -93,6 +93,14 @@ class AllowedHostsTests(SimpleTestCase):
 
 @override_settings(DEBUG=True)
 class SeedTests(TestCase):
+    def test_at1_seed_basic_creates_the_upcoming_events_and_a_reseed_does_not_double_them(self):
+        call_command("seed", "basic", verbosity=0)
+        first = Event.objects.count()
+        call_command("seed", "basic", verbosity=0)
+
+        self.assertEqual(first, 15)
+        self.assertEqual(Event.objects.count(), 15)
+
     def test_seed_basic_creates_fake_members_in_every_section_and_two_leaders(self):
         call_command("seed", "basic", verbosity=0)
 

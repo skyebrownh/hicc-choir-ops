@@ -17,7 +17,7 @@ The choir director plans each week's songs and keeps track of about 35 choir mem
 
 **Goal:** One mobile-friendly place where section leaders mark attendance and see who needs a follow-up (v1), and where the director plans sets with each song's history, leads and stats in front of her (v2).
 
-**Success for v1:** For four weeks in a row, section leaders record attendance at every rehearsal and service. A week counts when every non-cancelled Saturday and Sunday event has marks for all sections.
+**Success for v1:** For four weeks in a row, section leaders record attendance at every rehearsal and service. A week counts when every non-canceled Saturday and Sunday event has marks for all sections.
 
 **Success for v2:** For four weeks in a row, the director plans every set in the app instead of from memory and texts. A week counts when its Sunday set exists in the app before that Sunday.
 
@@ -93,7 +93,7 @@ v2 work can start while v1 is being measured. v2 adds no new roles or hosting.
 
 | ID | Requirement |
 | --- | --- |
-| AT-1 | Each week's events are created automatically: Wednesday service (Praise Team only), Saturday rehearsal (everyone) and Sunday (everyone; one event covering both services). Events are created for the current week and the next 4 weeks by a scheduled command that is safe to rerun. There is at most one Wednesday, Saturday and Sunday event per date. |
+| AT-1 | Each week's events are created automatically: Wednesday service (Praise Team only), Saturday rehearsal (everyone) and Sunday (everyone; one event covering both services). Events are created for the current week and the next 4 weeks by a scheduled command that is safe to rerun, which admins can also run by hand with a "Create upcoming events" button. There is at most one Wednesday, Saturday and Sunday event per date. |
 | AT-2 | Admins can add a special event or extra rehearsal with a date, a name, and who's expected: Everyone or Praise Team. Several events can share a date. |
 | AT-3 | Admins can cancel an event (no rehearsal this week, for example), which removes it from sheets, rates and flags. |
 | AT-4 | An event's sheet lists the members expected at it: Active on that date, listed under the section they were in on that date, and on the Praise Team on that date if the event is Praise Team only. A member with no status on the event's date isn't expected. |
@@ -263,7 +263,7 @@ v2 work can start while v1 is being measured. v2 adds no new roles or hosting.
 | kind | choice | Wednesday service, Saturday rehearsal, Sunday, Special event, Extra rehearsal |
 | name | text | Special events and extra rehearsals |
 | expected | choice | Everyone, Praise Team |
-| cancelled | yes/no | |
+| canceled | yes/no | |
 
 ### Attendance mark
 
@@ -361,7 +361,7 @@ The app is split into three modules: **accounts** (sign-in, roles), **roster** (
 ## Testing approach
 
 - **Good tests:** test behaviour through public paths. Use Django's test client, signed in as a specific role, asking for pages and posting forms, and check what comes back and what's stored. Don't test private helpers or framework behaviour.
-- **What gets tested:** every requirement ID has at least one test that names it. Every business rule is tested on the server. Every page has a permission test for each role, especially that section leaders get "not found" for songs, sets, stats and other sections. Rate and flag rules are tested with fixed dates, including breaks, cancelled events, Praise Team–only Wednesdays, and members who changed section or Praise Team. Import commands are tested with small sample files.
+- **What gets tested:** every requirement ID has at least one test that names it. Every business rule is tested on the server. Every page has a permission test for each role, especially that section leaders get "not found" for songs, sets, stats and other sections. Rate and flag rules are tested with fixed dates, including breaks, canceled events, Praise Team–only Wednesdays, and members who changed section or Praise Team. Import commands are tested with small sample files.
 - **Not tested automatically:** look and feel, and phone layout (checked by hand on an iPhone); real email delivery through Resend (checked by hand once deployed); the backup script (checked by hand, like heritage's), including a deliberately failed run to prove the alert arrives (channel named when the backup issue is planned); speed (one Lighthouse mobile run per milestone against the 2-second target); accessibility (a keyboard pass and a VoiceOver pass on the attendance sheet); contrast (a WCAG AA check with a browser tool on each page); cost (a look at Railway's dashboard after the first week).
 - **Test data:** a `seed <scenario>` command resets a local database to a known state with fake members, as in heritage.
 - **Examples to follow:** filled in once the first tests exist.
@@ -398,3 +398,4 @@ The app is split into three modules: **accounts** (sign-in, roles), **roster** (
 - 2026-10-24: v1 is roster and attendance only; songs, sets, stats and history import become v2 (milestones renamed M1/M2/M3 to v1/v2/v3). Roster and attendance stand on their own, and the old v1 success measure couldn't be checked until about January. v2 work starts while v1 is being measured. This changes release order only: still one project, three modules and one database.
 - 2026-10-25: The page header says who is signed in (AC-8), and the Accounts pages mark "you", because admins manage accounts (including their own, which they may not demote or remove) and need to see which one is theirs.
 - 2026-10-25: The Members list puts Praise Team members first within each status group, and each status badge gets a small dot, so the list is quicker to scan. Status still outranks Praise Team, and the dot is decoration only: the word stays, so status is never shown by colour alone.
+- 2026-10-25: Events are created by a scheduled command, and admins also get a "Create upcoming events" button for when the schedule hasn't run or they want the weeks ahead now. A week runs Monday to Sunday. Only events dated today or later can be canceled, since past events feed rates and flags. The spelling is "canceled" throughout.
