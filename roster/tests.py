@@ -1028,10 +1028,8 @@ class RememberedFilterTests(TestCase):
 
     def test_ro4_the_reset_link_clears_the_remembered_filters(self):
         self.client.get("/members/?section=alto&status=inactive")
-        reset = self.client.get("/members/").content.decode().split('href="')
-        reset_url = next(part.split('"')[0] for part in reset if part.split('"', 1)[1].startswith(' class="link">Reset'))
-
-        self.client.get(reset_url.replace("&amp;", "&"))
+        # The page's Reset link is asserted to be this exact URL in the Reset-link test above.
+        self.client.get("/members/?section=&status=&praise_team=")
 
         self.assertDefaultView(self.client.get("/members/"))
 
