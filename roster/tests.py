@@ -2288,6 +2288,17 @@ class EditEventTests(TestCase):
         extra.refresh_from_db()
         self.assertEqual(extra.name, "")
 
+    def test_at2_a_failed_edit_still_names_the_event_as_it_is_saved(self):
+        event = make_event(date(2026, 11, 7), name="Concert")
+
+        with fake_now(2026, 11, 1):
+            # A new name with an invalid "expected": the form fails, but it has already read the new name.
+            response = self.client.post(f"/events/{event.pk}/edit/", {"name": "Renamed", "expected": "nobody"})
+
+        self.assertContains(response, "Concert on Sat, Nov 7, 2026")
+        self.assertNotContains(response, "Renamed on")
+        self.assertNotContains(response, "Special event on")
+
     def test_at2_a_canceled_upcoming_event_can_be_edited_and_stays_canceled(self):
         event = make_event(date(2026, 11, 7), name="Concert", canceled=True)
 

@@ -226,12 +226,15 @@ def event_edit(request, pk):
     (fix it in the Django admin).
     """
     event = get_object_or_404(Event, pk=pk, date__gte=timezone.localdate())
+    # Taken before the form is built: validating a form writes the posted values onto `event`, so after a failed
+    # save the heading would otherwise show the name that was never saved.
+    summary = f"{event.title} on {format_date(event.date, 'D, M j, Y')}"
     form = EventEditForm(request.POST or None, instance=event)
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, f"{event.title} on {date_format(event.date)} is updated.")
         return redirect("event-list")
-    return render(request, "roster/event_form.html", {"form": form, "event": event, "title": "Edit event"})
+    return render(request, "roster/event_form.html", {"form": form, "summary": summary, "title": "Edit event"})
 
 
 @role_required(Role.ADMIN)
