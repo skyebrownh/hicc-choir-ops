@@ -1,7 +1,7 @@
 from django import forms
 from django.db.models import Q
 
-from accounts.models import Account, Section
+from accounts.models import Account, Role, Section
 from roster.models import Member
 
 
@@ -45,3 +45,26 @@ class AccountForm(forms.ModelForm):
         self.fields["email"].widget.attrs["class"] = "input"
         self.fields["role"].widget.attrs["class"] = "select"
         self.fields["member"].widget.attrs["class"] = "select"
+
+    def clean_email(self):
+        email = self.cleaned_data["email"]
+        # AC-5: sign-in matches emails ignoring case, so "Sophie@" and "sophie@" are the same address.
+        others = Account.objects.filter(email__iexact=email).exclude(pk=self.instance.pk)
+        if others.exists():
+            raise forms.ValidationError("That email already has an account.")
+        return email
+
+    def clean(self):
+        cleaned = super().clean()
+        role = cleaned.get("role")
+        if role == Role.SECTION_LEADER:
+            # AC-5, AC-6: only an admin may go without a member; a leader is a choir member with sections.
+            if not cleaned.get("member"):
+                self.add_error("member", "A section leader has to be a choir member.")
+            if not cleaned.get("sections"):
+                self.add_error("sections", "Pick at least one section.")
+        elif role == Role.ADMIN:
+            # AC-5: an admin sees every section, so submitted sections are ignored and the stored ones
+            # stay, ready if they become a leader again.
+            cleaned["sections"] = list(self.instance.sections)
+        return cleaned

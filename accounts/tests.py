@@ -15,6 +15,7 @@ from django.utils import timezone
 
 from accounts import email as resend
 from accounts.models import Account, Role, SignInCode
+from roster.models import Member
 from roster.tests import make_member
 
 # Django's default hasher is deliberately slow; MD5 keeps every code check fast in tests.
@@ -550,3 +551,49 @@ class AccountPagesTests(TestCase):
         self.add(email="tom@example.com", role="section_leader", member=member.pk, sections=["tenor", "bass"])
 
         self.assertCountEqual(Account.objects.get(email="tom@example.com").sections, ["tenor", "bass"])
+
+    def test_ac5_an_admin_account_ignores_submitted_sections(self):
+        member = make_member("Amy Walker", "alto")
+
+        self.add(email="amy@example.com", role="admin", member=member.pk, sections=["alto"])
+
+        account = Account.objects.get(email="amy@example.com")
+        self.assertEqual((account.role, account.sections), (Role.ADMIN, []))
+
+    def test_ac5_a_leader_with_no_section_is_rejected(self):
+        member = make_member("Sophie Reed", "soprano")
+
+        response = self.add(email="sophie@example.com", role="section_leader", member=member.pk)
+
+        self.assertContains(response, "Pick at least one section")
+        self.assertFalse(Account.objects.filter(email="sophie@example.com").exists())
+
+    def test_ac5_a_leader_with_no_member_is_rejected(self):
+        response = self.add(email="sophie@example.com", role="section_leader", sections=["soprano"])
+
+        self.assertContains(response, "A section leader has to be a choir member")
+        self.assertFalse(Account.objects.filter(email="sophie@example.com").exists())
+
+    def test_ac6_an_admin_account_can_have_no_member_and_makes_no_member_record(self):
+        response = self.add(email="director@example.com", role="admin")
+
+        self.assertRedirects(response, "/accounts/")
+        self.assertIsNone(Account.objects.get(email="director@example.com").member)
+        self.assertEqual(Member.objects.count(), 0)
+
+    def test_ac5_a_duplicate_email_in_any_letter_case_is_rejected(self):
+        Account.objects.create_user("sophie@example.com", role=Role.ADMIN)
+
+        response = self.add(email="Sophie@Example.com", role="admin")
+
+        self.assertContains(response, "already has an account")
+        self.assertEqual(Account.objects.count(), 2)
+
+    def test_ac5_a_member_with_an_account_cannot_be_given_another(self):
+        member = make_member("Sophie Reed", "soprano")
+        Account.objects.create_user("sophie@example.com", sections=["soprano"], member=member)
+
+        response = self.add(email="other@example.com", role="admin", member=member.pk)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Account.objects.filter(email="other@example.com").exists())
