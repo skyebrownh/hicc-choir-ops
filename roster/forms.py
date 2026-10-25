@@ -108,11 +108,15 @@ class PraiseTeamChangeForm(DatedChangeForm):
 
 
 class MemberFilterForm(forms.Form):
-    """RO-4: the roster's filters, read from the page's query string (GET), never saved.
+    """RO-4: the roster's filters, read from the page's query string (GET) or, when it has none, from
+    the copy the view remembers in the person's session (see `member_list`).
 
-    A value that isn't one of the choices is dropped by validation, so a mistyped or
-    out-of-reach value just means "no filter" on that field instead of an error page.
+    A value that isn't one of the choices is dropped by validation, so a mistyped, out-of-reach or
+    since-removed value just means "no filter" on that field instead of an error page.
     """
+
+    # RO-4: the query-string keys the view treats as "these are my filters".
+    FIELD_NAMES = ("section", "status", "praise_team")
 
     # RO-4: "" is every field's default. Status's default hides Inactive members, because that group can grow large.
     STATUS_CHOICES = [

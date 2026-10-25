@@ -19,7 +19,8 @@
   <noscript><button type="submit" class="btn-primary">Apply</button></noscript>
 </form>
 {% if filters.changed_from_default %}
-<a href="{% url 'member-list' %}" class="link">Reset</a>
+{# RO-4: all three keys, empty: the view remembers "all defaults". A bare /members/ would just bring back the remembered filters. #}
+<a href="{% url 'member-list' %}?section=&amp;status=&amp;praise_team=" class="link">Reset</a>
 {% endif %}
 <script src="{% static 'members-filter.js' %}" defer></script>
 {# RO-4: said out loud so nobody wonders where the Inactive members went. #}

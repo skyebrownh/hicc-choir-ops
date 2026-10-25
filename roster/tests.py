@@ -942,7 +942,7 @@ class MemberListFilterTests(TestCase):
         self.assertNotContains(self.client.get("/members/"), ">Reset</a>")
         for query in ["section=alto", "status=on_break", "status=all", "praise_team=no"]:
             response = self.client.get(f"/members/?{query}")
-            self.assertContains(response, 'href="/members/" class="link">Reset</a>')
+            self.assertContains(response, 'href="/members/?section=&amp;status=&amp;praise_team=" class="link">Reset</a>')
 
     def test_ro4_a_filter_set_to_its_default_does_not_show_reset(self):
         self.assertNotContains(self.client.get("/members/?section=&status=&praise_team="), ">Reset</a>")
@@ -950,6 +950,8 @@ class MemberListFilterTests(TestCase):
     def test_ro4_the_list_reads_the_same_number_of_queries_with_many_members_filtered_or_not(self):
         for query in ["", "?section=alto&status=all&praise_team=yes"]:
             self.add("First", "alto", praise_team=True)
+            # RO-4: choosing filters saves them in the session (a write), so save them before counting reads.
+            self.client.get(f"/members/{query}")
             with CaptureQueriesContext(connection) as few:
                 self.client.get(f"/members/{query}")
             for i in range(6):
@@ -958,6 +960,128 @@ class MemberListFilterTests(TestCase):
                 self.client.get(f"/members/{query}")
 
             self.assertEqual(len(few), len(many))
+
+
+class RememberedFilterTests(TestCase):
+    """RO-4: the filters a person chose are remembered until Reset or sign-out."""
+
+    def setUp(self):
+        self.admin = Account.objects.create_superuser("admin@example.com")
+        self.client.force_login(self.admin)
+        self.ada = self.add("Ada Active", "alto")
+        self.ivy = self.add("Ivy Inactive", "alto", "inactive")
+        self.tom = self.add("Tom Tenor", "tenor", "inactive")
+
+    def add(self, name, section, status="active"):
+        member = make_member(name=name, section=section)
+        StatusChange.objects.create(member=member, status=status, effective_on=date(2026, 1, 1))
+        return member
+
+    def assertShowsInactiveAltos(self, response):
+        self.assertContains(response, "Ivy Inactive")
+        self.assertNotContains(response, "Ada Active")
+        self.assertNotContains(response, "Tom Tenor")
+
+    def assertDefaultView(self, response):
+        self.assertContains(response, "Ada Active")
+        self.assertNotContains(response, "Ivy Inactive")
+        self.assertContains(response, "Inactive members are hidden")
+
+    def test_ro4_chosen_filters_are_still_there_after_opening_a_member_and_coming_back(self):
+        self.client.get("/members/?section=alto&status=inactive&praise_team=")
+        self.client.get(f"/members/{self.ivy.pk}/")
+
+        self.assertShowsInactiveAltos(self.client.get("/members/"))
+
+    def test_ro4_chosen_filters_survive_a_status_change_and_its_redirect(self):
+        self.client.get("/members/?section=alto&status=inactive")
+
+        response = self.client.post(
+            f"/members/{self.ivy.pk}/status/", {"status": "active", "effective_on": today().isoformat()}
+        )
+        self.assertRedirects(response, f"/members/{self.ivy.pk}/")
+
+        # Ivy is Active now, so the Inactive filter is empty, but it is still the filter in force.
+        response = self.client.get("/members/")
+        self.assertContains(response, 'value="inactive" selected')
+        self.assertContains(response, "No members match these filters.")
+
+    def test_ro4_filters_in_the_url_replace_the_remembered_ones(self):
+        self.client.get("/members/?section=alto&status=inactive")
+
+        self.client.get("/members/?section=tenor&status=all")
+        response = self.client.get("/members/")
+
+        self.assertContains(response, "Tom Tenor")
+        self.assertNotContains(response, "Ada Active")
+
+    def test_ro4_a_url_with_only_some_filters_sends_the_others_back_to_default(self):
+        self.client.get("/members/?section=alto&status=all")
+
+        self.client.get("/members/?status=inactive")
+        response = self.client.get("/members/")
+
+        # Section went back to "All sections", so Tom shows too.
+        self.assertContains(response, "Ivy Inactive")
+        self.assertContains(response, "Tom Tenor")
+        self.assertNotContains(response, "Ada Active")
+
+    def test_ro4_the_reset_link_clears_the_remembered_filters(self):
+        self.client.get("/members/?section=alto&status=inactive")
+        reset = self.client.get("/members/").content.decode().split('href="')
+        reset_url = next(part.split('"')[0] for part in reset if part.split('"', 1)[1].startswith(' class="link">Reset'))
+
+        self.client.get(reset_url.replace("&amp;", "&"))
+
+        self.assertDefaultView(self.client.get("/members/"))
+
+    def test_ro4_signing_out_clears_the_remembered_filters(self):
+        self.client.get("/members/?section=alto&status=inactive")
+
+        self.client.post("/signout/")
+        self.client.force_login(self.admin)
+
+        self.assertDefaultView(self.client.get("/members/"))
+
+    def test_ro4_one_persons_filters_never_change_what_another_sees(self):
+        self.client.get("/members/?section=alto&status=inactive")
+        other = self.client_class()
+        other.force_login(Account.objects.create_superuser("other@example.com"))
+
+        self.assertDefaultView(other.get("/members/"))
+        other.get("/members/?status=all")
+
+        self.assertShowsInactiveAltos(self.client.get("/members/"))
+
+    def test_ro4_a_remembered_section_the_leader_no_longer_has_is_dropped(self):
+        leader = Account.objects.create_user("tenor@example.com", sections=["tenor", "alto"])
+        self.client.force_login(leader)
+        self.client.get("/members/?section=alto&status=all")
+
+        leader.sections = ["tenor"]
+        leader.save()
+        response = self.client.get("/members/")
+
+        self.assertContains(response, "Tom Tenor")
+        self.assertNotContains(response, "Ivy Inactive")
+
+    def test_ro4_the_notice_and_show_everyone_link_still_work_with_remembered_filters(self):
+        self.client.get("/members/?section=alto&praise_team=")
+
+        response = self.client.get("/members/")
+
+        self.assertContains(response, "Inactive members are hidden")
+        self.assertContains(response, 'href="/members/?section=alto&amp;status=all"')
+
+    def test_ro4_remembered_filters_do_not_add_queries(self):
+        # Prime the session first, so neither request below has a session write to count.
+        self.client.get("/members/?section=alto&status=inactive")
+        with CaptureQueriesContext(connection) as plain:
+            self.client.get("/members/?section=alto&status=inactive")
+        with CaptureQueriesContext(connection) as remembered:
+            self.client.get("/members/")
+
+        self.assertEqual(len(plain), len(remembered))
 
 
 class LeaderFilterTests(TestCase):

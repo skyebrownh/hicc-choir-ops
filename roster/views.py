@@ -10,8 +10,19 @@ from roster.models import Member, PraiseTeamChange, SectionChange, Status, Statu
 def member_list(request):
     """RO-3, RO-6: admins see everyone, section leaders their own sections. Members sit under the section they are in now."""
     members = Member.objects.visible_to(request.user).with_current_status()
-    # RO-4: narrow by the filters in the query string, before sorting and grouping.
-    filters = MemberFilterForm(request.GET, request.user)
+    # RO-4: any filter key in the URL is the whole chosen view (keys it leaves out mean "default") and is
+    # remembered; a URL with none (the Members link, Back, Cancel) uses what was remembered. Reset is a link
+    # with every key empty, which remembers "all defaults". The raw values are saved and re-validated on
+    # each read, so a section the leader has since lost is dropped like any invalid value.
+    if any(name in request.GET for name in MemberFilterForm.FIELD_NAMES):
+        chosen = {name: request.GET.get(name, "") for name in MemberFilterForm.FIELD_NAMES}
+        # Only write when it changed, so re-opening the same filtered link doesn't save the session again.
+        if request.session.get("member_filters") != chosen:
+            request.session["member_filters"] = chosen
+    else:
+        chosen = request.session.get("member_filters", {})
+    # RO-4: narrow by those filters, before sorting and grouping.
+    filters = MemberFilterForm(chosen, request.user)
     members = filters.filter(members)
     # RO-2: in each section, Active first, then On Break, then Inactive; within a status, Praise Team
     # members (their current flag) before the others, then by name. `not flag` is the sort key because
