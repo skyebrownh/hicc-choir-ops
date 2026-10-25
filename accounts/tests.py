@@ -360,6 +360,15 @@ class ResendBackendTests(SimpleTestCase):
         self.assertNotIn("html", json.loads(urlopen.call_args.args[0].data))
 
     @override_settings(RESEND_API_KEY="test-key")
+    def test_ac1_a_plain_email_message_is_sent_as_text_only(self):
+        plain = mail.EmailMessage("Subject", "Body 123456", "HICC <signin@mail.example.com>", ["a@example.com"])
+        with mock.patch("accounts.email.urllib.request.urlopen") as urlopen:
+            sent = resend.ResendEmailBackend().send_messages([plain])
+
+        self.assertEqual(sent, 1)
+        self.assertNotIn("html", json.loads(urlopen.call_args.args[0].data))
+
+    @override_settings(RESEND_API_KEY="test-key")
     def test_ac1_it_raises_when_resend_answers_with_an_error(self):
         error = urllib.error.HTTPError("https://api.resend.com/emails", 403, "Forbidden", {}, io.BytesIO())
         with mock.patch("accounts.email.urllib.request.urlopen", side_effect=error):
