@@ -9,7 +9,7 @@
     {% if section_history %}<span class="badge">{{ section_history.0.get_section_display }}</span>{% endif %}
     {% if praise_team_history.0.praise_team %}<span class="badge-accent">Praise Team</span>{% endif %}
     {# RO-2: the first history row is the current status; reusing it saves two queries. #}
-    {% if history %}<span class="badge">{{ history.0.get_status_display }}</span>{% endif %}
+    {% if history %}{% include "components/_status_badge.html" with status=history.0.status label=history.0.get_status_display %}{% endif %}
   </div>
   <dl class="mt-6 space-y-4">
     <div><dt class="font-medium text-gray-900">Phone</dt><dd class="muted">{{ member.phone|default:"—" }}</dd></div>

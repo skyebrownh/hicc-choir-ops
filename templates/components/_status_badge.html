@@ -1,0 +1,6 @@
+{% comment %}
+  RO-2: a member's status as a gray pill with a small dot before the word. Used on the Members list and the
+  member's page so the two can't drift apart. Pass `status` (the value: active, on_break or inactive) and
+  `label` (the words). The dot is decoration only (aria-hidden): the word carries the meaning, so status is
+  never shown by colour alone. No whitespace between the dot and the word, so the pill reads "<dot>Active".
+{% endcomment %}<span class="badge"><span class="status-dot status-dot-{{ status }}" aria-hidden="true"></span>{{ label }}</span>

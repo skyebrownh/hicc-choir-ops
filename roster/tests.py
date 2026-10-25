@@ -737,6 +737,14 @@ class MemberListStatusTests(TestCase):
 
         self.assertLess(content.index("Abe Plain"), content.index("Zed Left"))
 
+    def test_ro2_each_status_badge_has_its_own_decorative_dot_on_the_list_and_the_member_page(self):
+        for status, label in [("active", "Active"), ("on_break", "On Break"), ("inactive", "Inactive")]:
+            member = self.add(f"Member {status}", "alto", status)
+            dot = f'<span class="status-dot status-dot-{status}" aria-hidden="true"></span>{label}</span>'
+            with self.subTest(status=status):
+                self.assertContains(self.client.get("/members/?status=all"), dot)
+                self.assertContains(self.client.get(f"/members/{member.pk}/"), dot)
+
     def test_ro2_each_member_shows_their_current_status_not_an_old_one(self):
         self.add("Ben", "alto", "active", "on_break")
 

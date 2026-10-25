@@ -38,7 +38,7 @@
       <span class="flex flex-wrap justify-end gap-2">
         {% if member.praise_team_now %}<span class="badge-accent">Praise Team</span>{% endif %}
         {# RO-2: current status. The section is the heading above, so it isn't repeated. #}
-        {% if member.status_label %}<span class="badge">{{ member.status_label }}</span>{% endif %}
+        {% if member.status_label %}{% include "components/_status_badge.html" with status=member.status_now label=member.status_label %}{% endif %}
       </span>
     </a>
   </li>
