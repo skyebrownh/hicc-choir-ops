@@ -245,9 +245,6 @@ class Event(models.Model):
         EVERYONE = "everyone", "Everyone"
         PRAISE_TEAM = "praise_team", "Praise Team"
 
-    # The kinds the scheduled command creates, one a date. Special events and extra rehearsals are not here.
-    WEEKLY_KINDS = [Kind.WEDNESDAY, Kind.SATURDAY, Kind.SUNDAY]
-
     date = models.DateField()
     kind = models.CharField(max_length=10, choices=Kind.choices)
     # Special events and extra rehearsals are named; the weekly ones are not.
@@ -260,7 +257,8 @@ class Event(models.Model):
         ordering = ["date", "id"]
         constraints = [
             # AT-1: at most one Wednesday, Saturday and Sunday event per date. Conditional, because
-            # AT-2 lets several special events and extra rehearsals share a date.
+            # AT-2 lets several special events and extra rehearsals share a date. (The same three kinds
+            # as WEEKLY_SCHEDULE in events.py: the command makes only these.)
             models.UniqueConstraint(
                 fields=["date", "kind"],
                 condition=models.Q(kind__in=["wednesday", "saturday", "sunday"]),
