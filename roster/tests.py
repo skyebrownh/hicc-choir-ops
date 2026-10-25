@@ -1832,6 +1832,13 @@ class EventPermissionTests(TestCase):
             response = self.client.get(url)
             self.assertEqual(response.status_code, 302, url)
             self.assertTrue(response["Location"].startswith("/signin/"), url)
+        # The actions too: a signed-out POST must not create or cancel anything.
+        for url in ["/events/create-upcoming/", "/events/new/", f"/events/{event.pk}/cancel/"]:
+            response = self.client.post(url)
+            self.assertEqual(response.status_code, 302, url)
+            self.assertTrue(response["Location"].startswith("/signin/"), url)
+        self.assertEqual(Event.objects.count(), 1)
+        self.assertFalse(Event.objects.get().canceled)
 
 
 class AddEventTests(TestCase):
