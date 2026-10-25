@@ -679,8 +679,8 @@ class MemberListStatusTests(TestCase):
     def setUp(self):
         self.client.force_login(Account.objects.create_superuser("admin@example.com"))
 
-    def add(self, name, section, *statuses):
-        member = make_member(name=name, section=section)
+    def add(self, name, section, *statuses, praise_team=False):
+        member = make_member(name=name, section=section, praise_team=praise_team)
         for i, status in enumerate(statuses):
             StatusChange.objects.create(member=member, status=status, effective_on=date(2026, 1, 1 + i))
         return member
@@ -707,6 +707,54 @@ class MemberListStatusTests(TestCase):
         names = ["Abe Active", "Zed Active", "Ben OnBreak", "Amy Inactive"]
         positions = [content.index(name) for name in names]
         self.assertEqual(positions, sorted(positions))
+
+    def test_ro2_within_a_status_praise_team_members_come_before_others_then_by_name(self):
+        self.add("Abe Plain", "alto", "active")
+        self.add("Zed Team", "alto", "active", praise_team=True)
+        self.add("Cal Team", "alto", "active", praise_team=True)
+        self.add("Bob Plain", "alto", "active")
+
+        content = self.client.get("/members/").content.decode()
+
+        names = ["Cal Team", "Zed Team", "Abe Plain", "Bob Plain"]
+        positions = [content.index(name) for name in names]
+        self.assertEqual(positions, sorted(positions))
+
+    def test_ro2_a_section_leader_sees_the_same_order_and_dots(self):
+        self.add("Abe Plain", "alto", "active")
+        self.add("Zed Team", "alto", "active", praise_team=True)
+        self.client.force_login(Account.objects.create_user("alto@example.com", sections=["alto"]))
+
+        response = self.client.get("/members/")
+
+        content = response.content.decode()
+        self.assertLess(content.index("Zed Team"), content.index("Abe Plain"))
+        self.assertContains(response, '<span class="status-dot status-dot-active" aria-hidden="true"></span>Active</span>', count=2)
+
+    def test_ro2_status_still_outranks_praise_team(self):
+        self.add("Amy Active", "alto", "active")
+        self.add("Ivy Inactive Team", "alto", "active", "inactive", praise_team=True)
+
+        content = self.client.get("/members/?status=all").content.decode()
+
+        self.assertLess(content.index("Amy Active"), content.index("Ivy Inactive Team"))
+
+    def test_ro2_praise_team_order_uses_the_current_flag_not_an_old_one(self):
+        self.add("Abe Plain", "alto", "active")
+        left = self.add("Zed Left", "alto", "active", praise_team=True)
+        PraiseTeamChange.objects.create(member=left, praise_team=False, effective_on=date(2026, 2, 1))
+
+        content = self.client.get("/members/").content.decode()
+
+        self.assertLess(content.index("Abe Plain"), content.index("Zed Left"))
+
+    def test_ro2_each_status_badge_has_its_own_decorative_dot_on_the_list_and_the_member_page(self):
+        for status, label in [("active", "Active"), ("on_break", "On Break"), ("inactive", "Inactive")]:
+            member = self.add(f"Member {status}", "alto", status)
+            dot = f'<span class="status-dot status-dot-{status}" aria-hidden="true"></span>{label}</span>'
+            with self.subTest(status=status):
+                self.assertContains(self.client.get("/members/?status=all"), dot)
+                self.assertContains(self.client.get(f"/members/{member.pk}/"), dot)
 
     def test_ro2_each_member_shows_their_current_status_not_an_old_one(self):
         self.add("Ben", "alto", "active", "on_break")

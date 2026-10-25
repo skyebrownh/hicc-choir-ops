@@ -13,10 +13,15 @@ def member_list(request):
     # RO-4: narrow by the filters in the query string, before sorting and grouping.
     filters = MemberFilterForm(request.GET, request.user)
     members = filters.filter(members)
-    # RO-2: in each section, Active first, then On Break, then Inactive, then by name.
+    # RO-2: in each section, Active first, then On Break, then Inactive; within a status, Praise Team
+    # members (their current flag) before the others, then by name. `not flag` is the sort key because
+    # False sorts before True, so members on the team come first; no flag at all counts as not on it.
     # Rank follows the order the statuses are declared in `Status` (Active, On Break, Inactive).
     status_rank = {status: rank for rank, status in enumerate(Status.values)}
-    members = sorted(members, key=lambda m: (status_rank.get(m.status_now, len(status_rank)), m.name.lower()))
+    members = sorted(
+        members,
+        key=lambda m: (status_rank.get(m.status_now, len(status_rank)), not m.praise_team_now, m.name.lower()),
+    )
     for member in members:
         member.status_label = Status(member.status_now).label if member.status_now else ""
     # Sections in the choir's usual order (SPEC.md lists them Soprano, Alto, Tenor, Bass).
