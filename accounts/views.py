@@ -149,7 +149,7 @@ def account_remove(request, pk):
     The member, if any, stays: it is only their way in that goes.
     """
     account = get_object_or_404(Account, pk=pk)
-    # Also guarantees the last admin can't be removed.
+    # AC-5: also guarantees the last admin can't be removed.
     if account.pk == request.user.pk:
         return render(
             request,

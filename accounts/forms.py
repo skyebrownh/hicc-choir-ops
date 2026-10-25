@@ -38,7 +38,7 @@ class MemberSelect(forms.Select):
 class AccountForm(forms.ModelForm):
     """AC-5, AC-6: give a member (or nobody, for an admin) a way to sign in. Add and edit share this."""
 
-    # Sections as checkboxes, so nobody types a Postgres array.
+    # AC-5: sections as checkboxes, so nobody types a Postgres array.
     sections = forms.MultipleChoiceField(
         choices=Section.choices, widget=forms.CheckboxSelectMultiple, required=False
     )
@@ -85,7 +85,7 @@ class AccountForm(forms.ModelForm):
             notes = [text for applies, text in [(member.pk == you, "you"), (member.pk in have_account, "has an account")] if applies]
             return f"{member.name} ({', '.join(notes)})" if notes else member.name
 
-        # Sections in the choir's usual order, then anyone with no section at all.
+        # AC-5: sections in the choir's usual order, then anyone with no section at all.
         sections = [*Section.values, None]
         groups = []
         for section in sections:
@@ -120,7 +120,7 @@ class AccountForm(forms.ModelForm):
             if not cleaned.get("sections"):
                 self.add_error("sections", "Pick at least one section.")
         if self.instance.pk and self.instance.pk == getattr(self.acting_user, "pk", None) and role != Role.ADMIN:
-            # Also guarantees the last admin can't lose their access.
+            # AC-5: also guarantees the last admin can't lose their access.
             self.add_error("role", "You can't take away your own admin access.")
         if role == Role.ADMIN:
             # AC-5: an admin sees every section, so submitted sections are ignored and the stored ones

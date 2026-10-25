@@ -41,7 +41,7 @@
   </header>
   {% endif %}
   <main class="mx-auto max-w-2xl px-4 py-6 sm:py-10">
-    {# One-time notes such as "Account added", shown on the page after the change. #}
+    {# AC-5: one-time notes such as "Account added", shown on the page after the change. #}
     {% for message in messages %}<p role="status" class="alert-success mb-6">{{ message }}</p>{% endfor %}
     {% block content %}{% endblock %}
   </main>
