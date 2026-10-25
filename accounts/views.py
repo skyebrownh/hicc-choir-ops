@@ -1,5 +1,6 @@
 import logging
 
+from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
@@ -111,6 +112,7 @@ def account_add(request):
     form = AccountForm(request.POST or None, acting_user=request.user)
     if request.method == "POST" and form.is_valid():
         form.save()
+        messages.success(request, "Account added.")
         return redirect("account-list")
     return render(request, "accounts/account_form.html", {"form": form, "title": "Add an account"})
 
@@ -122,6 +124,7 @@ def account_edit(request, pk):
     form = AccountForm(request.POST or None, instance=account, acting_user=request.user)
     if request.method == "POST" and form.is_valid():
         form.save()
+        messages.success(request, "Account changed.")
         return redirect("account-list")
     return render(
         request, "accounts/account_form.html", {"form": form, "account": account, "title": f"Edit {account.display_name}"}
@@ -145,5 +148,6 @@ def account_remove(request, pk):
         )
     if request.method == "POST":
         account.delete()
+        messages.success(request, "Account removed.")
         return redirect("account-list")
     return render(request, "accounts/account_confirm_remove.html", {"account": account})

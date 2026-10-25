@@ -686,3 +686,58 @@ class AccountPagesTests(TestCase):
 
         self.assertContains(response, "own account")
         self.assertTrue(Account.objects.filter(pk=self.admin.pk).exists())
+
+    def test_ac5_a_banner_confirms_an_account_was_added_changed_and_removed(self):
+        member = make_member("Sophie Reed", "soprano")
+        added = self.client.post(
+            "/accounts/new/",
+            {"email": "sophie@example.com", "role": "section_leader", "member": member.pk, "sections": ["soprano"]},
+            follow=True,
+        )
+        account = Account.objects.get(email="sophie@example.com")
+        changed = self.client.post(
+            f"/accounts/{account.pk}/edit/",
+            {"role": "section_leader", "member": member.pk, "sections": ["alto"]},
+            follow=True,
+        )
+        removed = self.client.post(f"/accounts/{account.pk}/remove/", follow=True)
+
+        self.assertContains(added, "Account added")
+        self.assertContains(changed, "Account changed")
+        self.assertContains(removed, "Account removed")
+
+    def test_the_accounts_nav_link_shows_for_admins_and_not_for_leaders(self):
+        self.assertContains(self.client.get("/week/"), 'href="/accounts/"')
+
+        self.client.force_login(self.make_leader())
+
+        self.assertNotContains(self.client.get("/attendance/"), 'href="/accounts/"')
+
+
+class AccountPagePermissionTests(TestCase):
+    """AC-5: a section leader asking for an account page gets "not found"; a visitor is sent to sign in."""
+
+    def setUp(self):
+        self.target = Account.objects.create_user("target@example.com", role=Role.ADMIN)
+        self.paths = ["/accounts/", "/accounts/new/", f"/accounts/{self.target.pk}/edit/", f"/accounts/{self.target.pk}/remove/"]
+
+    def test_ac5_a_section_leader_gets_not_found_on_every_account_page_for_get_and_post(self):
+        self.client.force_login(Account.objects.create_user("leader@example.com", sections=["alto"]))
+
+        for path in self.paths:
+            with self.subTest(path=path):
+                self.assertEqual(self.client.get(path).status_code, 404)
+                self.assertEqual(self.client.post(path, {"email": "x@example.com", "role": "admin"}).status_code, 404)
+        self.assertEqual(Account.objects.count(), 2)
+
+    def test_ac5_a_visitor_who_is_not_signed_in_is_sent_to_sign_in(self):
+        for path in self.paths:
+            with self.subTest(path=path):
+                self.assertRedirects(self.client.get(path), f"/signin/?next={path}")
+
+    def test_ac5_an_admin_can_open_every_account_page(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+
+        for path in self.paths:
+            with self.subTest(path=path):
+                self.assertEqual(self.client.get(path).status_code, 200)

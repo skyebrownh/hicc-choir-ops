@@ -104,6 +104,14 @@ class SeedTests(TestCase):
         leaders = Account.objects.filter(role=Role.SECTION_LEADER)
         self.assertEqual(sorted(leader.sections for leader in leaders), [["alto"], ["tenor", "bass"]])
 
+    def test_seed_basic_links_each_leader_to_a_member_in_their_sections_and_adds_an_admin_with_no_member(self):
+        call_command("seed", "basic", verbosity=0)
+        call_command("seed", "basic", verbosity=0)  # admins are kept, so a second seed must not trip over the first
+
+        for leader in Account.objects.filter(role=Role.SECTION_LEADER):
+            self.assertIn(leader.member.current_section, leader.sections)
+        self.assertEqual(Account.objects.filter(role=Role.ADMIN, member__isnull=True).count(), 1)
+
     def test_seed_basic_gives_every_member_a_status_and_one_a_break_history(self):
         call_command("seed", "basic", verbosity=0)
 
