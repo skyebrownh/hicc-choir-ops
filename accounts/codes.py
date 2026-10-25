@@ -4,8 +4,9 @@ import secrets
 from datetime import timedelta
 
 from django.contrib.auth.hashers import check_password, make_password
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
 from django.db import transaction
+from django.template.loader import render_to_string
 from django.utils import timezone
 
 from accounts.models import SignInCode
@@ -29,13 +30,20 @@ def issue_code(account):
         code=make_password(code),  # AC-1: never stored in plain text
         expires_at=timezone.now() + CODE_LIFETIME,
     )
+    # AC-2: the emails read the lifetime from CODE_LIFETIME, so they can't drift from the real expiry.
+    minutes = int(CODE_LIFETIME.total_seconds() // 60)
     try:
-        send_mail(
+        message = EmailMultiAlternatives(
             "Your HICC Choir Ops sign-in code",
-            f"Your sign-in code is {code}. It works for 10 minutes.",
-            None,
+            # AC-1: the plain-text version is the fallback for mail apps that don't show HTML.
+            f"Your sign-in code is {code}. It works for {minutes} minutes.\n\n"
+            "If you didn't ask for this, ignore this email.",
+            None,  # None means the default from address
             [account.email],
         )
+        html = render_to_string("accounts/signin_code_email.html", {"code": code, "minutes": minutes})
+        message.attach_alternative(html, "text/html")
+        message.send()
     except Exception:
         stored.delete()
         raise

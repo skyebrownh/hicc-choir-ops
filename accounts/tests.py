@@ -139,8 +139,46 @@ class SignInTests(TestCase):
         self.assertEqual(SignInCode.objects.count(), 0)
         self.assertNotIn("signin_email", self.client.session)
 
+    def html_part(self):
+        """The HTML version of the most recent email."""
+        (html, mimetype), = mail.outbox[-1].alternatives
+        self.assertEqual(mimetype, "text/html")
+        return html
+
+    def test_ac1_the_email_has_an_html_version_with_the_code_expiry_and_ignore_line(self):
+        self.request_code()
+
+        html = self.html_part()
+        self.assertIn(sent_code(), html)
+        self.assertIn("Your sign-in code", html)
+        self.assertIn("Hello,", html)
+        self.assertIn("It works for 10 minutes.", html)
+        self.assertIn("If you didn't ask for this, ignore this email.", html)
+
+    def test_ac2_both_email_versions_state_the_code_lifetime_in_force(self):
+        with mock.patch("accounts.codes.CODE_LIFETIME", timedelta(minutes=15)):
+            self.request_code()
+
+        self.assertIn("It works for 15 minutes.", mail.outbox[-1].body)
+        self.assertIn("It works for 15 minutes.", self.html_part())
+
+    def test_ac1_the_html_email_has_no_links_images_or_style_blocks(self):
+        self.request_code()
+
+        html = self.html_part().lower()
+        for forbidden in ("<a ", "<img", "<style", "<link", "http"):
+            self.assertNotIn(forbidden, html)
+
+    def test_ac1_the_text_email_keeps_the_code_line_and_adds_the_ignore_line(self):
+        self.request_code()
+
+        message = mail.outbox[-1]
+        self.assertEqual(message.subject, "Your HICC Choir Ops sign-in code")
+        self.assertIn(f"Your sign-in code is {sent_code()}. It works for 10 minutes.", message.body)
+        self.assertIn("If you didn't ask for this, ignore this email.", message.body)
+
     def test_ac1_a_send_failure_is_logged_without_secrets_and_clears_the_code(self):
-        with mock.patch("accounts.codes.send_mail", side_effect=urllib.error.URLError("down")):
+        with mock.patch("accounts.codes.EmailMultiAlternatives.send", side_effect=urllib.error.URLError("down")):
             with self.assertLogs("accounts.views", level="ERROR") as logs:
                 response = self.request_code()
 
@@ -289,8 +327,13 @@ class StaySignedInTests(TestCase):
 
 
 class ResendBackendTests(SimpleTestCase):
-    def message(self):
-        return mail.EmailMessage("Subject", "Body 123456", "HICC <signin@mail.example.com>", ["a@example.com"])
+    def message(self, html="<p>Body 123456</p>"):
+        message = mail.EmailMultiAlternatives(
+            "Subject", "Body 123456", "HICC <signin@mail.example.com>", ["a@example.com"]
+        )
+        if html:
+            message.attach_alternative(html, "text/html")
+        return message
 
     @override_settings(RESEND_API_KEY="test-key")
     def test_ac1_it_posts_the_message_to_resend_with_the_right_headers_and_timeout(self):
@@ -312,8 +355,25 @@ class ResendBackendTests(SimpleTestCase):
                 "to": ["a@example.com"],
                 "subject": "Subject",
                 "text": "Body 123456",
+                "html": "<p>Body 123456</p>",
             },
         )
+
+    @override_settings(RESEND_API_KEY="test-key")
+    def test_ac1_a_message_without_html_is_sent_without_an_html_field(self):
+        with mock.patch("accounts.email.urllib.request.urlopen") as urlopen:
+            resend.ResendEmailBackend().send_messages([self.message(html=None)])
+
+        self.assertNotIn("html", json.loads(urlopen.call_args.args[0].data))
+
+    @override_settings(RESEND_API_KEY="test-key")
+    def test_ac1_a_plain_email_message_is_sent_as_text_only(self):
+        plain = mail.EmailMessage("Subject", "Body 123456", "HICC <signin@mail.example.com>", ["a@example.com"])
+        with mock.patch("accounts.email.urllib.request.urlopen") as urlopen:
+            sent = resend.ResendEmailBackend().send_messages([plain])
+
+        self.assertEqual(sent, 1)
+        self.assertNotIn("html", json.loads(urlopen.call_args.args[0].data))
 
     @override_settings(RESEND_API_KEY="test-key")
     def test_ac1_it_raises_when_resend_answers_with_an_error(self):
