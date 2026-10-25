@@ -14,6 +14,7 @@ def member_list(request):
     # remembered; a URL with none (the Members link, Back, Cancel) uses what was remembered. Reset is a link
     # with every key empty, which remembers "all defaults". The raw values are saved and re-validated on
     # each read, so a section the leader has since lost is dropped like any invalid value.
+    # Signing out clears them too: logout() flushes the whole session.
     if any(name in request.GET for name in MemberFilterForm.FIELD_NAMES):
         chosen = {name: request.GET.get(name, "") for name in MemberFilterForm.FIELD_NAMES}
         # Only write when it changed, so re-opening the same filtered link doesn't save the session again.
