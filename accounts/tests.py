@@ -661,3 +661,28 @@ class AccountPagesTests(TestCase):
         self.assertContains(response, "take away your own admin access")
         self.admin.refresh_from_db()
         self.assertEqual(self.admin.role, Role.ADMIN)
+
+    def test_ac5_removing_an_account_needs_the_confirm_page_to_be_submitted(self):
+        leader = self.make_leader()
+
+        page = self.client.get(f"/accounts/{leader.pk}/remove/")
+
+        self.assertContains(page, "Remove the account for Sophie Reed?")
+        self.assertTrue(Account.objects.filter(pk=leader.pk).exists())
+
+    def test_ac5_an_admin_removes_an_account_and_that_person_can_no_longer_sign_in(self):
+        leader = self.make_leader()
+
+        response = self.client.post(f"/accounts/{leader.pk}/remove/")
+
+        self.assertRedirects(response, "/accounts/")
+        self.assertFalse(Account.objects.filter(pk=leader.pk).exists())
+        self.assertEqual(Member.objects.filter(name="Sophie Reed").count(), 1)
+        self.client.logout()
+        self.assertContains(self.client.post("/signin/", {"email": "sophie@example.com"}), "no account for that email")
+
+    def test_ac5_an_admin_cannot_remove_their_own_account(self):
+        response = self.client.post(f"/accounts/{self.admin.pk}/remove/")
+
+        self.assertContains(response, "own account")
+        self.assertTrue(Account.objects.filter(pk=self.admin.pk).exists())

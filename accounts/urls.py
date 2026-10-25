@@ -10,6 +10,7 @@ urlpatterns = [
     # "new/" comes before any "<int:pk>" route so it is never read as an account id.
     path("accounts/new/", views.account_add, name="account-add"),
     path("accounts/<int:pk>/edit/", views.account_edit, name="account-edit"),
+    path("accounts/<int:pk>/remove/", views.account_remove, name="account-remove"),
     path("signout/", views.sign_out, name="sign-out"),
     path("signin/", views.request_code, name="request-code"),
     path("signin/code/", views.enter_code, name="enter-code"),

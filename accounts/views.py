@@ -2,7 +2,7 @@ import logging
 
 from django.contrib.auth import login, logout
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts import codes, ratelimit
 from accounts.forms import AccountForm, CodeForm, EmailForm
@@ -126,3 +126,24 @@ def account_edit(request, pk):
     return render(
         request, "accounts/account_form.html", {"form": form, "account": account, "title": f"Edit {account.display_name}"}
     )
+
+
+@role_required(Role.ADMIN)
+@require_http_methods(["GET", "POST"])
+def account_remove(request, pk):
+    """AC-5: admins remove an account. GET asks "are you sure?"; only the POST from that page deletes.
+
+    The member, if any, stays: it is only their way in that goes.
+    """
+    account = get_object_or_404(Account, pk=pk)
+    # Also guarantees the last admin can't be removed.
+    if account.pk == request.user.pk:
+        return render(
+            request,
+            "accounts/account_confirm_remove.html",
+            {"account": account, "error": "You can't remove your own account."},
+        )
+    if request.method == "POST":
+        account.delete()
+        return redirect("account-list")
+    return render(request, "accounts/account_confirm_remove.html", {"account": account})
