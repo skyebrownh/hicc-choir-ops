@@ -3,14 +3,18 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
 {# AC-1: email apps ignore Tailwind and style blocks, so every style is inline. #}
 {# Keep angle brackets out of these comments: a browser previewing the raw file reads a tag inside one as real HTML. #}
-{# The page sets no background or text colour, so Apple Mail and Gmail can flip it for dark mode themselves. #}
-{# Only the code box sets both colours (together), so the code stays readable whichever way it flips. #}
-<body style="margin: 0; padding: 24px; font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.5;">
-  <h1 style="margin: 0 0 16px; font-size: 22px;">Your sign-in code</h1>
-  <p style="margin: 0 0 16px;">Hello,</p>
-  <p style="margin: 0 0 8px;">Enter this code to sign in to HICC Choir Ops:</p>
-  <p style="margin: 0 0 16px; padding: 16px 24px; display: inline-block; background-color: #f0f0f0; color: #111111; border-radius: 8px; font-family: Menlo, Consolas, 'Courier New', monospace; font-size: 36px; font-weight: bold; letter-spacing: 6px;">{{ code }}</p>
-  <p style="margin: 0 0 16px;">It works for {{ minutes }} minutes.</p>
-  <p style="margin: 0;">If you didn't ask for this, ignore this email.</p>
+{# The page sets no background or main text colour, so Apple Mail and Gmail can flip it for dark mode themselves. #}
+{# The code box sets both its colours (together), so the code stays readable whichever way it flips. #}
+{# Secondary text and the divider use one mid-gray (#767676), which keeps AA contrast on both white and black. #}
+<body style="margin: 0; padding: 0; font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.5;">
+  <div style="max-width: 480px; margin: 0 auto; padding: 32px 24px;">
+    <p style="margin: 0 0 8px; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: #767676;">HICC Choir Ops</p>
+    <h1 style="margin: 0 0 24px; font-size: 24px; line-height: 1.25;">Your sign-in code</h1>
+    <p style="margin: 0 0 8px;">Hello,</p>
+    <p style="margin: 0 0 24px;">Enter this code to sign in to HICC Choir Ops:</p>
+    <p style="margin: 0 0 8px; padding: 20px 24px; display: inline-block; background-color: #f0f0f0; color: #111111; border-radius: 8px; font-family: Menlo, Consolas, 'Courier New', monospace; font-size: 36px; font-weight: bold; letter-spacing: 6px;">{{ code }}</p>
+    <p style="margin: 0 0 32px; font-size: 14px; color: #767676;">It works for {{ minutes }} minutes.</p>
+    <p style="margin: 0; padding-top: 16px; border-top: 1px solid #767676; font-size: 14px; color: #767676;">If you didn't ask for this, ignore this email.</p>
+  </div>
 </body>
 </html>
