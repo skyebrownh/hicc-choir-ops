@@ -1,15 +1,14 @@
 from django.contrib import messages
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from accounts.models import Role, Section
 from accounts.permissions import role_required
 from roster.events import create_upcoming_events
 from roster.forms import EventForm, MemberFilterForm, MemberForm, PraiseTeamChangeForm, SectionChangeForm, StatusChangeForm
-from django.utils import timezone
-from django.views.decorators.http import require_POST
-
-from roster.models import Event, Member, date_format, PraiseTeamChange, SectionChange, Status, StatusChange
+from roster.models import Event, Member, PraiseTeamChange, SectionChange, Status, StatusChange, date_format
 
 
 def member_list(request):
