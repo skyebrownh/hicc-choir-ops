@@ -185,6 +185,27 @@ uv run --env-file .env python manage.py import_members private-data/members.csv
 
 Every member is added as Active, with their section and Praise Team flag, all dated today. The command checks every row first: if any row is bad it imports nothing and lists each problem as `line N: reason` (never the person's details), so fix the file and run it again. A name already on the roster counts as a bad row, so a second run can't create duplicates.
 
+### Importing in production
+
+The real list is imported once, into production's database. Two things make it different from running it locally. The CSV is on your Mac but the command has to run inside Railway's service (see Deploy, "To run a command in production"), so the file is sent along inside the command. And it writes real data, so take a backup first.
+
+1. Check the file works first: run the command locally against `seed basic` data (above). A bad row in production just stops the import with nothing added, but finding it locally is quicker.
+2. Make a fresh backup, so there is a copy from just before the import: `~/Backups/hicc-choir-ops/backup.sh now`
+3. Send the file and run the import. This encodes the CSV as plain text on your Mac, writes it to the service's temporary `/tmp` folder, imports it, then deletes it:
+
+   ```sh
+   DATA=$(base64 < private-data/members.csv | tr -d '\n')
+   railway ssh --service hicc-choir-ops -- "sh -c 'echo $DATA | base64 -d > /tmp/members.csv && python manage.py import_members /tmp/members.csv; rm -f /tmp/members.csv'"
+   unset DATA
+   ```
+
+   The member details travel inside the command, over Railway's encrypted connection. They are not saved in your shell history (the history keeps the command as typed, not the expanded value), and the copy in `/tmp` is deleted straight away and would be wiped by any redeploy anyway.
+4. Read the output. "Imported N members." means it worked. If it lists `line N: reason` problems, nothing was imported: fix `private-data/members.csv` and run step 3 again.
+5. Sign in to the production site and check the Members list: the count and a few names, sections and Praise Team flags should match the file. Each member should be Active, dated the day you imported.
+6. Don't run it a second time once it has worked: every name would be reported as already on the roster. To add someone later, use the Add member page.
+
+Not yet tried against Railway: if step 3 misbehaves (for example `railway ssh` doesn't pass the command through as written), say so and this section gets corrected.
+
 ## How work happens
 
 Every change starts from a GitHub issue; [CLAUDE.md](CLAUDE.md) has the project's conventions.
