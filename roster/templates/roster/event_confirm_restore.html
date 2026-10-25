@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Restore event · HICC Choir Ops{% endblock %}
+{% block content %}
+{# AT-3: undoes a cancel; a confirm page like canceling, because it puts the event back on sheets, rates and flags. #}
+<div class="mx-auto max-w-md">
+  <div class="card">
+    <h1 class="page-title">Restore {{ event.title }} on {{ event.date|date:"M j" }}?</h1>
+    <p class="muted mt-2">It will be back on attendance sheets, rates and follow-up flags.</p>
+    <form method="post" class="mt-6 space-y-6">
+      {% csrf_token %}
+      <button type="submit" class="btn-primary">Yes, restore it</button>
+      <a href="{% url 'event-list' %}" class="btn-secondary">Leave it canceled</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -237,7 +237,7 @@ class Event(models.Model):
     class Kind(models.TextChoices):
         WEDNESDAY = "wednesday", "Wednesday service"
         SATURDAY = "saturday", "Saturday rehearsal"
-        SUNDAY = "sunday", "Sunday"
+        SUNDAY = "sunday", "Sunday services"
         SPECIAL = "special", "Special event"
         EXTRA = "extra", "Extra rehearsal"
 
@@ -268,6 +268,11 @@ class Event(models.Model):
 
     def __str__(self):
         return f"{self.title} on {self.date}"
+
+    @property
+    def is_weekly(self):
+        # AT-1: made by the scheduled command, so told apart by kind alone (they have no name).
+        return self.kind in (self.Kind.WEDNESDAY, self.Kind.SATURDAY, self.Kind.SUNDAY)
 
     @property
     def title(self):

@@ -80,6 +80,14 @@
   .status-dot-canceled {
     @apply bg-red-700;
   }
+  /* AT-3: Cancel is rare, so it is a quiet outlined red button in a list (red-700 on white is 5:1+), and a solid red one
+     only on its confirm page, where it is the point. Unlike .btn-primary these two size to their text. */
+  .btn-danger-quiet {
+    @apply inline-flex min-h-11 items-center justify-center rounded-md px-3 font-medium text-red-700 ring-1 ring-red-300 ring-inset hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600;
+  }
+  .btn-danger {
+    @apply flex min-h-11 w-full items-center justify-center rounded-md px-3.5 py-2.5 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 bg-red-600 text-white shadow-xs hover:bg-red-500;
+  }
   .badge-accent {
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium bg-indigo-50 text-indigo-700;
   }

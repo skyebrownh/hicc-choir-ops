@@ -17,5 +17,6 @@ urlpatterns = [
     path("events/past/", views.event_past, name="event-past"),
     path("events/new/", views.event_add, name="event-add"),
     path("events/<int:pk>/cancel/", views.event_cancel, name="event-cancel"),
+    path("events/<int:pk>/restore/", views.event_restore, name="event-restore"),
     path("events/create-upcoming/", views.events_create_upcoming, name="events-create-upcoming"),
 ]

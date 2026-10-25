@@ -1,5 +1,8 @@
+from itertools import groupby
+
 from django.contrib import messages
 from django.db import transaction
+from django.utils.formats import date_format as _date_format
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -161,18 +164,39 @@ def member_praise_team(request, pk):
     )
 
 
+def _by_month(events):
+    """AT-1, AT-3: [("November 2026", [events...]), ...], one group per month, in the order the events came in."""
+    first_of_month = lambda event: event.date.replace(day=1)
+    return [(_date_format(month, "F Y"), list(group)) for month, group in groupby(events, key=first_of_month)]
+
+
 @role_required(Role.ADMIN)
 def event_list(request):
     """AT-1, AT-3: events from today on, in date order. Canceled ones stay in place, badged."""
     events = Event.objects.filter(date__gte=timezone.localdate())
-    return render(request, "roster/event_list.html", {"events": events})
+    return render(request, "roster/event_list.html", {"months": _by_month(events)})
 
 
 @role_required(Role.ADMIN)
 def event_past(request):
     """AT-3: events before today, newest first, canceled ones included. Read-only."""
     events = Event.objects.filter(date__lt=timezone.localdate()).order_by("-date", "-id")
-    return render(request, "roster/event_past.html", {"events": events})
+    return render(request, "roster/event_past.html", {"months": _by_month(events)})
+
+
+@role_required(Role.ADMIN)
+def event_restore(request, pk):
+    """AT-3: undoes a cancel, for an event dated today or later that is canceled. Anything else is "not found".
+
+    Same limit as canceling: a past event already counted in rates and flags is fixed in the Django admin.
+    """
+    event = get_object_or_404(Event, pk=pk, canceled=True, date__gte=timezone.localdate())
+    if request.method == "POST":
+        event.canceled = False
+        event.save(update_fields=["canceled"])
+        messages.success(request, f"{event.title} on {date_format(event.date)} is back on.")
+        return redirect("event-list")
+    return render(request, "roster/event_confirm_restore.html", {"event": event})
 
 
 @role_required(Role.ADMIN)

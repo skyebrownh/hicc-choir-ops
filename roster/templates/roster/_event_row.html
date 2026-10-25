@@ -1,13 +1,25 @@
 {# AT-1, AT-3: one event in a list. Used by the Events page and the Past events page so the two can't drift apart. #}
 <li class="flex min-h-14 items-center justify-between gap-3 px-4 py-3">
   <div>
-    <p class="font-medium text-gray-900">{{ event.title }}</p>
-    <p class="muted">{{ event.date|date:"D, M j, Y" }}</p>
+    {# A regular event is its kind (the badge) and its date, so its weekday would only repeat the kind. A special event is named, and keeps its weekday. #}
+    {% if event.is_weekly %}
+    <p class="font-medium text-gray-900">{{ event.date|date:"M j" }}</p>
+    {% else %}
+    <p class="font-medium text-gray-900">{{ event.name }}</p>
+    <p class="muted">{{ event.date|date:"D, M j" }}</p>
+    {% endif %}
+    {% if event.expected == "praise_team" %}<p class="muted">Praise Team only</p>{% endif %}
   </div>
   <div class="flex flex-wrap items-center justify-end gap-2">
-    {% if event.expected == "praise_team" %}<span class="badge-accent">Praise Team</span>{% endif %}
+    <span class="badge">{{ event.get_kind_display }}</span>
     {% if event.canceled %}{% include "components/_canceled_badge.html" %}{% endif %}
-    {# AT-3: set by the Events page only. The view refuses a past or already canceled event anyway. #}
-    {% if can_cancel and not event.canceled %}<a href="{% url 'event-cancel' event.pk %}" class="link">Cancel</a>{% endif %}
+    {# AT-3: set by the Events page only. The views refuse a past event anyway. #}
+    {% if can_change %}
+    {% if event.canceled %}
+    <a href="{% url 'event-restore' event.pk %}" class="btn-secondary w-auto">Restore</a>
+    {% else %}
+    <a href="{% url 'event-cancel' event.pk %}" class="btn-danger-quiet">Cancel</a>
+    {% endif %}
+    {% endif %}
   </div>
 </li>
