@@ -139,8 +139,38 @@ class SignInTests(TestCase):
         self.assertEqual(SignInCode.objects.count(), 0)
         self.assertNotIn("signin_email", self.client.session)
 
+    def html_part(self):
+        """The HTML version of the most recent email."""
+        (html, mimetype), = mail.outbox[-1].alternatives
+        self.assertEqual(mimetype, "text/html")
+        return html
+
+    def test_ac1_the_email_has_an_html_version_with_the_code_expiry_and_ignore_line(self):
+        self.request_code()
+
+        html = self.html_part()
+        self.assertIn(sent_code(), html)
+        self.assertIn("Your sign-in code", html)
+        self.assertIn("It works for 10 minutes.", html)
+        self.assertIn("If you didn't ask for this, ignore this email.", html)
+
+    def test_ac1_the_html_email_has_no_links_images_or_style_blocks(self):
+        self.request_code()
+
+        html = self.html_part().lower()
+        for forbidden in ("<a ", "<img", "<style", "<link", "http"):
+            self.assertNotIn(forbidden, html)
+
+    def test_ac1_the_text_email_keeps_the_code_line_and_adds_the_ignore_line(self):
+        self.request_code()
+
+        message = mail.outbox[-1]
+        self.assertEqual(message.subject, "Your HICC Choir Ops sign-in code")
+        self.assertIn(f"Your sign-in code is {sent_code()}. It works for 10 minutes.", message.body)
+        self.assertIn("If you didn't ask for this, ignore this email.", message.body)
+
     def test_ac1_a_send_failure_is_logged_without_secrets_and_clears_the_code(self):
-        with mock.patch("accounts.codes.send_mail", side_effect=urllib.error.URLError("down")):
+        with mock.patch("accounts.codes.EmailMultiAlternatives.send", side_effect=urllib.error.URLError("down")):
             with self.assertLogs("accounts.views", level="ERROR") as logs:
                 response = self.request_code()
 

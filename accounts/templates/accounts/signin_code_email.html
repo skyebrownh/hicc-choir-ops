@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+{# AC-1: email apps ignore Tailwind and <style> blocks, so every style is inline. #}
+{# The page sets no background or text colour, so Apple Mail and Gmail can flip it for dark mode themselves. #}
+{# Only the code box sets both colours (together), so the code stays readable whichever way it flips. #}
+<body style="margin: 0; padding: 24px; font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.5;">
+  <h1 style="margin: 0 0 16px; font-size: 22px;">Your sign-in code</h1>
+  <p style="margin: 0 0 16px;">Hello,</p>
+  <p style="margin: 0 0 8px;">Enter this code to sign in to HICC Choir Ops:</p>
+  <p style="margin: 0 0 16px; padding: 16px 24px; display: inline-block; background-color: #f0f0f0; color: #111111; border-radius: 8px; font-family: Menlo, Consolas, 'Courier New', monospace; font-size: 36px; font-weight: bold; letter-spacing: 6px;">{{ code }}</p>
+  <p style="margin: 0 0 16px;">It works for 10 minutes.</p>
+  <p style="margin: 0;">If you didn't ask for this, ignore this email.</p>
+</body>
+</html>
