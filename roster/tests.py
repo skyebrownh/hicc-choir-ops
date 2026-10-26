@@ -2464,7 +2464,8 @@ class EventRowAndPageActionTests(TestCase):
             body = self.client.get(f"/events/{event.pk}/edit/").content.decode()
 
         card = body.split('<div class="card">', 1)[1]
-        self.assertIn(f'<a href="/events/{event.pk}/cancel/" class="link !text-red-600">Cancel this event</a>', card)
+        self.assertIn(f'<a href="/events/{event.pk}/cancel/" class="btn-danger-outline">Cancel this event</a>', card)
+        self.assertIn("It stays on the list marked Canceled", card)
         self.assertNotIn("Restore this event", card)
 
     def test_at3_the_event_page_offers_restore_for_a_canceled_event(self):
@@ -2489,13 +2490,43 @@ class EventRowAndPageActionTests(TestCase):
         self.assertIn(f'href="/events/{special.pk}/delete/"', special_body.split('<div class="card">', 1)[1])
         self.assertNotIn("/delete/", regular_body)
 
-    def test_at3_the_event_actions_are_centered_under_the_form(self):
+    def test_at3_the_event_actions_sit_in_one_section_headed_by_what_they_do(self):
+        special = make_event(date(2026, 11, 7), name="Concert")
+        regular = make_event(date(2026, 11, 8), kind=Event.Kind.SUNDAY, name="")
+        gone = make_event(date(2026, 11, 9), name="Gone", canceled=True)
+        gone_regular = make_event(date(2026, 11, 10), kind=Event.Kind.SATURDAY, name="", canceled=True)
+
+        with fake_now(2026, 11, 1):
+            heading = lambda event: self.client.get(f"/events/{event.pk}/edit/").content.decode()
+
+            self.assertIn('<h2 class="font-semibold text-gray-900">Cancel or delete</h2>', heading(special))
+            self.assertIn('<h2 class="font-semibold text-gray-900">Cancel</h2>', heading(regular))
+            self.assertIn('<h2 class="font-semibold text-gray-900">Restore or delete</h2>', heading(gone))
+            self.assertIn('<h2 class="font-semibold text-gray-900">Restore</h2>', heading(gone_regular))
+
+    def test_at2_each_action_says_what_it_does_in_a_line_under_its_button(self):
+        special = make_event(date(2026, 11, 7), name="Concert")
+        gone = make_event(date(2026, 11, 9), name="Gone", canceled=True)
+
+        with fake_now(2026, 11, 1):
+            live_body = self.client.get(f"/events/{special.pk}/edit/").content.decode()
+            canceled_body = self.client.get(f"/events/{gone.pk}/edit/").content.decode()
+
+        self.assertIn("Called off. It stays on the list marked Canceled, and you can restore it.", live_body)
+        self.assertIn("Added by mistake. It's removed for good.", live_body)
+        self.assertIn('class="btn-danger-outline">Delete this event</a>', live_body)
+        self.assertIn("Puts it back on the schedule.", canceled_body)
+
+    def test_at3_the_form_button_on_an_existing_event_is_back_so_cancel_only_means_the_event(self):
         event = make_event(date(2026, 11, 7), name="Concert")
 
         with fake_now(2026, 11, 1):
-            body = self.client.get(f"/events/{event.pk}/edit/").content.decode()
+            edit_page = self.client.get(f"/events/{event.pk}/edit/").content.decode()
+            add_page = self.client.get("/events/new/").content.decode()
 
-        self.assertIn('<div class="mt-4 flex flex-col items-center">', body)
+        self.assertIn('class="btn-secondary">Back</a>', edit_page)
+        self.assertNotIn('class="btn-secondary">Cancel</a>', edit_page)
+        self.assertIn('class="btn-secondary">Cancel</a>', add_page)
 
     def test_at3_keep_it_and_leave_it_canceled_go_back_to_the_event_page(self):
         live = make_event(date(2026, 11, 7), name="Live")

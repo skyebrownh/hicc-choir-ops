@@ -84,6 +84,11 @@
   .status-dot-inactive {
     @apply border-2 border-gray-500;
   }
+  /* AT-2, AT-3: the outlined red buttons for canceling or deleting an event on its page: quiet, since these are
+     rare, but still full-size buttons (44px, red-700 on white). The solid .btn-danger is for the confirm pages. */
+  .btn-danger-outline {
+    @apply flex min-h-11 w-full items-center justify-center rounded-md px-3.5 py-2.5 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 bg-white text-red-700 ring-1 ring-red-300 ring-inset hover:bg-red-50;
+  }
   /* AT-3: the solid red button on the cancel and delete confirm pages, where it is the point. */
   .btn-danger {
     @apply flex min-h-11 w-full items-center justify-center rounded-md px-3.5 py-2.5 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 bg-red-600 text-white shadow-xs hover:bg-red-500;

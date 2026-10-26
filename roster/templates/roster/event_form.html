@@ -11,18 +11,29 @@
       {% csrf_token %}
       {% for field in form %}{% include "components/_field.html" %}{% endfor %}
       <button type="submit" class="btn-primary">Save</button>
-      <a href="{% url 'event-list' %}" class="btn-secondary">Cancel</a>
+      {# On an existing event this says "Back", so "cancel" on the page only ever means canceling the event. #}
+      <a href="{% url 'event-list' %}" class="btn-secondary">{% if event %}Back{% else %}Cancel{% endif %}</a>
     </form>
-    {# AT-2, AT-3: what can be done to the event itself, below the form, centered, as on the account page. #}
+    {# AT-2, AT-3: what can be done to the event itself: its own section under the form, each action with a line saying what it does. #}
     {% if event %}
-    <div class="mt-4 flex flex-col items-center">
-      {% if event.canceled %}
-      <a href="{% url 'event-restore' event.pk %}" class="link">Restore this event</a>
-      {% else %}
-      <a href="{% url 'event-cancel' event.pk %}" class="link !text-red-600">Cancel this event</a>
-      {% endif %}
+    <div class="mt-8 border-t border-gray-200 pt-6">
+      <h2 class="font-semibold text-gray-900">{% if event.canceled %}Restore{% else %}Cancel{% endif %}{% if not event.is_weekly %} or delete{% endif %}</h2>
+      <div class="mt-4 space-y-2">
+        {% if event.canceled %}
+        <a href="{% url 'event-restore' event.pk %}" class="btn-secondary">Restore this event</a>
+        <p class="muted text-center">Puts it back on the schedule.</p>
+        {% else %}
+        <a href="{% url 'event-cancel' event.pk %}" class="btn-danger-outline">Cancel this event</a>
+        <p class="muted text-center">Called off. It stays on the list marked Canceled, and you can restore it.</p>
+        {% endif %}
+      </div>
       {# AT-2: only for an event typed in by hand, and for a mistake rather than a called-off event. #}
-      {% if not event.is_weekly %}<a href="{% url 'event-delete' event.pk %}" class="link !text-red-600">Delete this event</a>{% endif %}
+      {% if not event.is_weekly %}
+      <div class="mt-4 space-y-2">
+        <a href="{% url 'event-delete' event.pk %}" class="btn-danger-outline">Delete this event</a>
+        <p class="muted text-center">Added by mistake. It's removed for good.</p>
+      </div>
+      {% endif %}
     </div>
     {% endif %}
   </div>
