@@ -11,7 +11,7 @@
       {% csrf_token %}
       {% for field in form %}{% include "components/_field.html" %}{% endfor %}
       <button type="submit" class="btn-primary">Save</button>
-      {# On an existing event this says "Back", so "cancel" on the page only ever means canceling the event. #}
+      {# AT-3: on an existing event this says "Back", so "cancel" on the page only ever means canceling the event. #}
       <a href="{% url 'event-list' %}" class="btn-secondary">{% if event %}Back{% else %}Cancel{% endif %}</a>
     </form>
     {# AT-2, AT-3: what can be done to the event itself: its own section under the form, each action with a line saying what it does. #}

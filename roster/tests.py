@@ -2497,12 +2497,12 @@ class EventRowAndPageActionTests(TestCase):
         gone_regular = make_event(date(2026, 11, 10), kind=Event.Kind.SATURDAY, name="", canceled=True)
 
         with fake_now(2026, 11, 1):
-            heading = lambda event: self.client.get(f"/events/{event.pk}/edit/").content.decode()
+            page_body = lambda event: self.client.get(f"/events/{event.pk}/edit/").content.decode()
 
-            self.assertIn('<h2 class="font-semibold text-gray-900">Cancel or delete</h2>', heading(special))
-            self.assertIn('<h2 class="font-semibold text-gray-900">Cancel</h2>', heading(regular))
-            self.assertIn('<h2 class="font-semibold text-gray-900">Restore or delete</h2>', heading(gone))
-            self.assertIn('<h2 class="font-semibold text-gray-900">Restore</h2>', heading(gone_regular))
+            self.assertIn('<h2 class="font-semibold text-gray-900">Cancel or delete</h2>', page_body(special))
+            self.assertIn('<h2 class="font-semibold text-gray-900">Cancel</h2>', page_body(regular))
+            self.assertIn('<h2 class="font-semibold text-gray-900">Restore or delete</h2>', page_body(gone))
+            self.assertIn('<h2 class="font-semibold text-gray-900">Restore</h2>', page_body(gone_regular))
 
     def test_at2_each_action_says_what_it_does_in_a_line_under_its_button(self):
         special = make_event(date(2026, 11, 7), name="Concert")
