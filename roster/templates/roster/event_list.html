@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Events · HICC Choir Ops{% endblock %}
+{% block content %}
+{# AT-1, AT-3: admins only; leaders get "not found" from the view. #}
+<div class="flex items-center justify-between gap-4">
+  <h1 class="page-title">Events</h1>
+  <a href="{% url 'event-add' %}" class="btn-primary w-auto shrink-0">Add an event</a>
+</div>
+<p class="mt-2"><a href="{% url 'event-past' %}" class="link">Past events</a></p>
+{% if months %}
+{% include "roster/_event_months.html" with clickable=True %}
+{% else %}
+<p class="empty-state mt-6">No upcoming events. Use "Add the next few weeks of events" below.</p>
+{% endif %}
+{# AT-1: kept quiet, because the daily scheduled job normally does this. A form, not a link, because it creates events and so must be a POST. #}
+<form method="post" action="{% url 'events-create-upcoming' %}" class="mt-10">
+  {% csrf_token %}
+  <button type="submit" class="link">Add the next few weeks of events</button>
+  <p class="muted">The app does this by itself every day. Use it only if the next few weeks look empty.</p>
+</form>
+{% endblock %}

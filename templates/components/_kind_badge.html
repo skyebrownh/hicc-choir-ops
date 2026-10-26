@@ -1,0 +1,6 @@
+{% comment %}
+  AT-1, AT-2: an event's kind as a pill. Pass `event`. A regular kind (Midweek, Rehearsal, Services) is the quiet
+  gray pill with a small colored dot, like a member's status; a special event or extra rehearsal is the same pale
+  indigo pill as a member's Praise Team label, so the exceptions stand out from the gray ones. The dot is decoration only (aria-hidden): the word carries the kind.
+  No whitespace between the dot and the word.
+{% endcomment %}{% if event.is_weekly %}<span class="badge"><span class="status-dot kind-dot-{{ event.kind }}" aria-hidden="true"></span>{{ event.get_kind_display }}</span>{% else %}<span class="badge-accent">{{ event.get_kind_display }}</span>{% endif %}

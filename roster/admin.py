@@ -6,7 +6,7 @@ from unfold.admin import ModelAdmin
 from unfold.widgets import UnfoldAdminSelectWidget, UnfoldBooleanWidget
 
 from roster.forms import FirstSectionAndFlagForm
-from roster.models import Member, PraiseTeamChange, SectionChange, StatusChange
+from roster.models import Event, Member, PraiseTeamChange, SectionChange, StatusChange
 
 
 class MemberChangeAdmin(ModelAdmin):
@@ -115,3 +115,12 @@ class MemberAdmin(ModelAdmin):
     @admin.display(description="Praise Team changes")
     def praise_team_changes_link(self, member):
         return self._link(member, "praiseteamchange", "praise_team_changes", "Praise Team change", "Praise Team changes")
+
+
+@admin.register(Event)
+class EventAdmin(ModelAdmin):
+    """AT-1, AT-2, AT-3: Skye's tool for fixing events the app's own pages won't touch, such as un-canceling or a past date."""
+
+    list_display = ["date", "kind", "name", "expected", "canceled"]
+    list_filter = ["kind", "canceled"]
+    date_hierarchy = "date"

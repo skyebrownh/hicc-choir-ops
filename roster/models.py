@@ -229,3 +229,57 @@ class PraiseTeamChange(DatedChange):
     def value_label(self):
         # Lower-case, for inside a sentence.
         return self.get_praise_team_display()[0].lower() + self.get_praise_team_display()[1:]
+
+
+class Event(models.Model):
+    """AT-1, AT-2, AT-3: a rehearsal or service people are expected at, on one date (US Eastern)."""
+
+    class Kind(models.TextChoices):
+        WEDNESDAY = "wednesday", "Midweek"
+        SATURDAY = "saturday", "Rehearsal"
+        SUNDAY = "sunday", "Services"
+        SPECIAL = "special", "Special event"
+        EXTRA = "extra", "Extra rehearsal"
+
+    class Expected(models.TextChoices):
+        EVERYONE = "everyone", "Everyone"
+        PRAISE_TEAM = "praise_team", "Praise Team"
+
+    # AT-1: the kinds the scheduled command creates, one a date. Special events and extra rehearsals are not here.
+    WEEKLY_KINDS = [Kind.WEDNESDAY, Kind.SATURDAY, Kind.SUNDAY]
+
+    date = models.DateField()
+    kind = models.CharField(max_length=10, choices=Kind.choices)
+    # AT-2: a special event is always named, an extra rehearsal may be, and the weekly ones never are.
+    name = models.CharField(max_length=200, blank=True)
+    expected = models.CharField(max_length=12, choices=Expected.choices)
+    # AT-2: anything worth knowing about this one event ("Wear black", "Doors at 6"). Not the attendance notes (AT-6).
+    notes = models.TextField(blank=True)
+    # AT-3: canceled events stay in the database but drop out of sheets, rates and flags.
+    canceled = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["date", "id"]
+        constraints = [
+            # AT-1: at most one Wednesday, Saturday and Sunday event per date. Conditional, because
+            # AT-2 lets several special events and extra rehearsals share a date. (The same three kinds
+            # as WEEKLY_SCHEDULE in events.py: the command makes only these.)
+            models.UniqueConstraint(
+                fields=["date", "kind"],
+                condition=models.Q(kind__in=["wednesday", "saturday", "sunday"]),
+                name="one_weekly_event_per_date",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.title} on {self.date}"
+
+    @property
+    def is_weekly(self):
+        # AT-1: made by the scheduled command, so told apart by kind alone (they have no name).
+        return self.kind in self.WEEKLY_KINDS
+
+    @property
+    def title(self):
+        # Weekly events are named by their kind; special events and extra rehearsals by what an admin typed.
+        return self.name or self.get_kind_display()

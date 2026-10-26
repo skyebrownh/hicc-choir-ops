@@ -1,0 +1,14 @@
+{# AT-1, AT-3: one event in a list. Used by the Events page and the Past events page so the two can't drift apart. #}
+<li>
+  {% if clickable %}
+  {# AT-2, AT-3: an upcoming event's whole row opens its page, where it is edited, canceled, restored or deleted (as on Members and Accounts). #}
+  <a href="{% url 'event-edit' event.pk %}" class="flex min-h-14 items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50">
+    {% include "roster/_event_summary.html" %}
+  </a>
+  {% else %}
+  {# AT-3: a past event is read-only, so its row is not a link. #}
+  <div class="flex min-h-14 items-center justify-between gap-3 px-4 py-3">
+    {% include "roster/_event_summary.html" %}
+  </div>
+  {% endif %}
+</li>

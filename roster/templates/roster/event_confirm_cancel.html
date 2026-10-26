@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Cancel event · HICC Choir Ops{% endblock %}
+{% block content %}
+{# AT-3: a confirm page, because canceling takes the event off sheets, rates and flags. #}
+<div class="mx-auto max-w-md">
+  <div class="card">
+    <h1 class="page-title">Cancel {{ event.title }} on {{ event.date|date:"M j" }}?</h1>
+    <p class="muted mt-2">It will stay on the Events page marked Canceled, and drop out of attendance sheets, rates and follow-up flags. You can restore it later.</p>
+    <form method="post" class="mt-6 space-y-6">
+      {% csrf_token %}
+      <button type="submit" class="btn-danger">Yes, cancel it</button>
+      <a href="{% url 'event-edit' event.pk %}" class="btn-secondary">Keep it</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

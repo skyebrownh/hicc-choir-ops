@@ -1,10 +1,17 @@
+from itertools import groupby
+
+from django.contrib import messages
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.utils.dateformat import format as format_date
+from django.views.decorators.http import require_POST
 
 from accounts.models import Role, Section
 from accounts.permissions import role_required
-from roster.forms import MemberFilterForm, MemberForm, PraiseTeamChangeForm, SectionChangeForm, StatusChangeForm
-from roster.models import Member, PraiseTeamChange, SectionChange, Status, StatusChange
+from roster.events import created_message, create_upcoming_events
+from roster.forms import EventEditForm, EventForm, MemberFilterForm, MemberForm, PraiseTeamChangeForm, SectionChangeForm, StatusChangeForm
+from roster.models import Event, Member, PraiseTeamChange, SectionChange, Status, StatusChange, date_format
 
 
 def member_list(request):
@@ -155,3 +162,112 @@ def member_praise_team(request, pk):
         request, pk, PraiseTeamChangeForm, PraiseTeamChange, "roster/change_form.html",
         "Change Praise Team for {}", lambda m: "on the Praise Team" if m.current_praise_team else "not on the Praise Team",
     )
+
+
+def _by_month(events):
+    """AT-1, AT-3: [("November 2026", [events...]), ...], one group per month, in the order the events came in."""
+    first_of_month = lambda event: event.date.replace(day=1)
+    return [(format_date(month, "F Y"), list(group)) for month, group in groupby(events, key=first_of_month)]
+
+
+@role_required(Role.ADMIN)
+def event_list(request):
+    """AT-1, AT-3: events from today on, in date order. Canceled ones stay in place, badged."""
+    events = Event.objects.filter(date__gte=timezone.localdate())
+    return render(request, "roster/event_list.html", {"months": _by_month(events)})
+
+
+@role_required(Role.ADMIN)
+def event_past(request):
+    """AT-3: events before today, newest first, canceled ones included. Read-only."""
+    events = Event.objects.filter(date__lt=timezone.localdate()).order_by("-date", "-id")
+    return render(request, "roster/event_past.html", {"months": _by_month(events)})
+
+
+@role_required(Role.ADMIN)
+def event_restore(request, pk):
+    """AT-3: undoes a cancel, for an event dated today or later that is canceled. Anything else is "not found".
+
+    Same limit as canceling: a past event already counted in rates and flags is fixed in the Django admin.
+    """
+    event = get_object_or_404(Event, pk=pk, canceled=True, date__gte=timezone.localdate())
+    if request.method == "POST":
+        event.canceled = False
+        event.save(update_fields=["canceled"])
+        messages.success(request, f"{event.title} on {date_format(event.date)} is back on.")
+        return redirect("event-list")
+    return render(request, "roster/event_confirm_restore.html", {"event": event})
+
+
+@role_required(Role.ADMIN)
+@require_POST
+def events_create_upcoming(request):
+    """AT-1: the button that does what the scheduled command does, and says how many events were new."""
+    count = create_upcoming_events()
+    messages.success(request, created_message(count))
+    return redirect("event-list")
+
+
+@role_required(Role.ADMIN)
+def event_add(request):
+    """AT-2: admins add a special event or extra rehearsal, on any date. Several can share a date."""
+    form = EventForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        return redirect("event-list")
+    return render(request, "roster/event_form.html", {"form": form, "title": "Add an event"})
+
+
+@role_required(Role.ADMIN)
+def event_edit(request, pk):
+    """AT-2: admins change an upcoming event's name, who is expected and notes, and correct the date of a special
+    event or extra rehearsal (canceled ones too).
+
+    Only today or later: who was expected at a past event feeds rates and flags, so it isn't edited here
+    (fix it in the Django admin).
+    """
+    event = get_object_or_404(Event, pk=pk, date__gte=timezone.localdate())
+    # Taken before the form is built: validating a form writes the posted values onto `event`, so after a failed
+    # save the heading would otherwise show the name that was never saved.
+    summary = f"{event.title} on {format_date(event.date, 'D, M j, Y')}"
+    form = EventEditForm(request.POST or None, instance=event)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, f"{event.title} on {date_format(event.date)} is updated.")
+        return redirect("event-list")
+    return render(request, "roster/event_form.html", {"form": form, "event": event, "summary": summary, "title": "Edit event"})
+
+
+@role_required(Role.ADMIN)
+def event_delete(request, pk):
+    """AT-2: removes a special event or extra rehearsal added by mistake (cancel it instead if it was called off).
+
+    Same limit as canceling and editing: dated today or later, so no past rate or flag changes. A regular event
+    is "not found", since the scheduled command would only create it again.
+    """
+    event = get_object_or_404(
+        Event.objects.exclude(kind__in=Event.WEEKLY_KINDS),
+        pk=pk,
+        date__gte=timezone.localdate(),
+    )
+    if request.method == "POST":
+        message = f"{event.title} on {date_format(event.date)} is deleted."
+        event.delete()
+        messages.success(request, message)
+        return redirect("event-list")
+    return render(request, "roster/event_confirm_delete.html", {"event": event})
+
+
+@role_required(Role.ADMIN)
+def event_cancel(request, pk):
+    """AT-3: asks first, then cancels. Only an event dated today or later that is not canceled already.
+
+    Anything else is "not found", so a direct POST can't cancel history that rates and flags rely on.
+    """
+    event = get_object_or_404(Event, pk=pk, canceled=False, date__gte=timezone.localdate())
+    if request.method == "POST":
+        event.canceled = True
+        event.save(update_fields=["canceled"])
+        messages.success(request, f"{event.title} on {date_format(event.date)} is canceled.")
+        return redirect("event-list")
+    return render(request, "roster/event_confirm_cancel.html", {"event": event})

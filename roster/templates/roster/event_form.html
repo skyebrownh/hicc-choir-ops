@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · HICC Choir Ops{% endblock %}
+{% block content %}
+{# AT-2: admins add a special event or extra rehearsal; leaders never reach this page. #}
+<div class="mx-auto max-w-md">
+  <div class="card">
+    <h1 class="page-title">{{ title }}</h1>
+    {# AT-2: on the edit page, which event this is (its date and kind can't be changed here). #}
+    {% if summary %}<p class="muted mt-2">{{ summary }}</p>{% endif %}
+    <form method="post" class="mt-6 space-y-6">
+      {% csrf_token %}
+      {% for field in form %}{% include "components/_field.html" %}{% endfor %}
+      <button type="submit" class="btn-primary">Save</button>
+      {# AT-3: on an existing event this says "Back", so "cancel" on the page only ever means canceling the event. #}
+      <a href="{% url 'event-list' %}" class="btn-secondary">{% if event %}Back{% else %}Cancel{% endif %}</a>
+    </form>
+    {# AT-2, AT-3: what can be done to the event itself: its own section under the form, each action with a line saying what it does. #}
+    {% if event %}
+    <div class="mt-8 border-t border-gray-200 pt-6">
+      <h2 class="font-semibold text-gray-900">{% if event.canceled %}Restore{% else %}Cancel{% endif %}{% if not event.is_weekly %} or delete{% endif %}</h2>
+      <div class="mt-4 space-y-2">
+        {% if event.canceled %}
+        <a href="{% url 'event-restore' event.pk %}" class="btn-secondary">Restore this event</a>
+        <p class="muted text-center">Puts it back on the schedule.</p>
+        {% else %}
+        <a href="{% url 'event-cancel' event.pk %}" class="btn-danger-outline">Cancel this event</a>
+        <p class="muted text-center">Called off. It stays on the list marked Canceled, and you can restore it.</p>
+        {% endif %}
+      </div>
+      {# AT-2: only for an event typed in by hand, and for a mistake rather than a called-off event. #}
+      {% if not event.is_weekly %}
+      <div class="mt-4 space-y-2">
+        <a href="{% url 'event-delete' event.pk %}" class="btn-danger-outline">Delete this event</a>
+        <p class="muted text-center">Added by mistake. It's removed for good.</p>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

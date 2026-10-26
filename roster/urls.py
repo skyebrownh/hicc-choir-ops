@@ -13,4 +13,12 @@ urlpatterns = [
     path("members/<int:pk>/section/", views.member_section, name="member-section"),
     path("members/<int:pk>/praise-team/", views.member_praise_team, name="member-praise-team"),
     path("members/<int:pk>/history/", views.member_history, name="member-history"),
+    path("events/", views.event_list, name="event-list"),
+    path("events/past/", views.event_past, name="event-past"),
+    path("events/new/", views.event_add, name="event-add"),
+    path("events/<int:pk>/edit/", views.event_edit, name="event-edit"),
+    path("events/<int:pk>/delete/", views.event_delete, name="event-delete"),
+    path("events/<int:pk>/cancel/", views.event_cancel, name="event-cancel"),
+    path("events/<int:pk>/restore/", views.event_restore, name="event-restore"),
+    path("events/create-upcoming/", views.events_create_upcoming, name="events-create-upcoming"),
 ]

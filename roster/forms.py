@@ -5,7 +5,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from accounts.models import Section
-from roster.models import Member, PraiseTeamChange, SectionChange, Status, StatusChange
+from roster.models import Event, Member, PraiseTeamChange, SectionChange, Status, StatusChange
 
 # Component classes from tailwind/input.css; `input` is 44px tall with 16px text (NFR).
 INPUT_CLASSES = "input"
@@ -185,3 +185,60 @@ class MemberFilterForm(forms.Form):
         if status != "all":
             return members.filter(status_now=status)
         return members
+
+
+class EventDetailsForm(forms.ModelForm):
+    """AT-2: the parts of an event an admin can type: date, name, who is expected and notes. The add and edit forms share this."""
+
+    # AT-2: required for a special event only (see `clean`); an unnamed extra rehearsal is shown by its date.
+    name = forms.CharField(max_length=200, required=False, label="Name (optional for an extra rehearsal)")
+
+    class Meta:
+        model = Event
+        fields = ["date", "name", "expected", "notes"]
+        labels = {"expected": "Who is expected"}
+        # AT-2: any date is fine, including a past one, so there is no "not in the future" check here.
+        widgets = {"date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"), "notes": forms.Textarea(attrs={"rows": 3})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs["class"] = widget_classes(field.widget)
+        # US Eastern "today" (settings.TIME_ZONE), not the server's UTC date.
+        if self.initial.get("date") is None:
+            self.initial["date"] = timezone.localdate()
+
+    def event_kind(self):
+        # The edit form's case: the kind is already set and never changes. The add form overrides this.
+        return self.instance.kind
+
+    def clean(self):
+        cleaned = super().clean()
+        if self.event_kind() == Event.Kind.SPECIAL and not cleaned.get("name"):
+            self.add_error("name", "This field is required.")
+        return cleaned
+
+
+class EventForm(EventDetailsForm):
+    """AT-2: adds a special event or extra rehearsal. The weekly kinds are made by the scheduled command, never here."""
+
+    # AT-2: only these two kinds can be added by hand.
+    kind = forms.ChoiceField(choices=[(Event.Kind.SPECIAL, "Special event"), (Event.Kind.EXTRA, "Extra rehearsal")])
+
+    class Meta(EventDetailsForm.Meta):
+        fields = ["date", "kind", "name", "expected", "notes"]
+
+    def event_kind(self):
+        return self.cleaned_data.get("kind")
+
+
+class EventEditForm(EventDetailsForm):
+    """AT-2: changes an upcoming event. The kind never changes. A special event or extra rehearsal can have its
+    date corrected (a mistake in what an admin typed); a Wednesday, Saturday or Sunday event is fixed to its date
+    by the scheduled command, so it can only be canceled."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # AT-1: a regular event is named by its kind and placed by the schedule, so it has no name or date to edit.
+        if self.instance.is_weekly:
+            del self.fields["name"], self.fields["date"]

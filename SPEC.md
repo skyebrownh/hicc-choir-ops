@@ -17,7 +17,7 @@ The choir director plans each week's songs and keeps track of about 35 choir mem
 
 **Goal:** One mobile-friendly place where section leaders mark attendance and see who needs a follow-up (v1), and where the director plans sets with each song's history, leads and stats in front of her (v2).
 
-**Success for v1:** For four weeks in a row, section leaders record attendance at every rehearsal and service. A week counts when every non-cancelled Saturday and Sunday event has marks for all sections.
+**Success for v1:** For four weeks in a row, section leaders record attendance at every rehearsal and service. A week counts when every non-canceled Saturday and Sunday event has marks for all sections.
 
 **Success for v2:** For four weeks in a row, the director plans every set in the app instead of from memory and texts. A week counts when its Sunday set exists in the app before that Sunday.
 
@@ -93,9 +93,9 @@ v2 work can start while v1 is being measured. v2 adds no new roles or hosting.
 
 | ID | Requirement |
 | --- | --- |
-| AT-1 | Each week's events are created automatically: Wednesday service (Praise Team only), Saturday rehearsal (everyone) and Sunday (everyone; one event covering both services). Events are created for the current week and the next 4 weeks by a scheduled command that is safe to rerun. There is at most one Wednesday, Saturday and Sunday event per date. |
-| AT-2 | Admins can add a special event or extra rehearsal with a date, a name, and who's expected: Everyone or Praise Team. Several events can share a date. |
-| AT-3 | Admins can cancel an event (no rehearsal this week, for example), which removes it from sheets, rates and flags. |
+| AT-1 | Each week's events are created automatically: Wednesday service (Praise Team only), Saturday rehearsal (everyone) and Sunday (everyone; one event covering both services). Events are created for the current week and the next 4 weeks by a scheduled command that is safe to rerun, which admins can also run by hand with an "Add the next few weeks of events" button. There is at most one Wednesday, Saturday and Sunday event per date. |
+| AT-2 | Admins can add a special event or extra rehearsal with a date, a name (required for a special event, optional for an extra rehearsal), who's expected (Everyone or Praise Team) and optional notes. Several events can share a date. Admins can later change an upcoming event's name, who's expected and notes (any event dated today or later, canceled ones too), correct the date of a special event or extra rehearsal, and delete one that was added by mistake (a regular event can only be canceled, since the schedule would create it again). |
+| AT-3 | Admins can cancel an event (no rehearsal this week, for example), which removes it from sheets, rates and flags, and can restore it (both only for an event dated today or later). |
 | AT-4 | An event's sheet lists the members expected at it: Active on that date, listed under the section they were in on that date, and on the Praise Team on that date if the event is Praise Team only. A member with no status on the event's date isn't expected. |
 | AT-5 | A section leader marks members of their own sections (by the member's section on the event's date) Present or Excused, before or after the event, and can undo a mark. Admins can mark anyone. Only admins can mark Wednesday services. There is no time limit on marking or undoing. |
 | AT-6 | Each line on a sheet can have a free-text note (for example "2nd service only"), visible to admins and to the member's section leader. |
@@ -260,10 +260,11 @@ v2 work can start while v1 is being measured. v2 adds no new roles or hosting.
 | --- | --- | --- |
 | id | integer | Primary key |
 | date | date | US Eastern |
-| kind | choice | Wednesday service, Saturday rehearsal, Sunday, Special event, Extra rehearsal |
-| name | text | Special events and extra rehearsals |
+| kind | choice | Wednesday service (shown as "Midweek"), Saturday rehearsal ("Rehearsal"), Sunday ("Services"), Special event, Extra rehearsal |
+| name | text | Required for a special event, optional for an extra rehearsal, empty for the weekly events |
 | expected | choice | Everyone, Praise Team |
-| cancelled | yes/no | |
+| notes | text | Optional; about this one event, such as "Wear black" |
+| canceled | yes/no | |
 
 ### Attendance mark
 
@@ -361,7 +362,7 @@ The app is split into three modules: **accounts** (sign-in, roles), **roster** (
 ## Testing approach
 
 - **Good tests:** test behaviour through public paths. Use Django's test client, signed in as a specific role, asking for pages and posting forms, and check what comes back and what's stored. Don't test private helpers or framework behaviour.
-- **What gets tested:** every requirement ID has at least one test that names it. Every business rule is tested on the server. Every page has a permission test for each role, especially that section leaders get "not found" for songs, sets, stats and other sections. Rate and flag rules are tested with fixed dates, including breaks, cancelled events, Praise Team–only Wednesdays, and members who changed section or Praise Team. Import commands are tested with small sample files.
+- **What gets tested:** every requirement ID has at least one test that names it. Every business rule is tested on the server. Every page has a permission test for each role, especially that section leaders get "not found" for songs, sets, stats and other sections. Rate and flag rules are tested with fixed dates, including breaks, canceled events, Praise Team–only Wednesdays, and members who changed section or Praise Team. Import commands are tested with small sample files.
 - **Not tested automatically:** look and feel, and phone layout (checked by hand on an iPhone); real email delivery through Resend (checked by hand once deployed); the backup script (checked by hand, like heritage's), including a deliberately failed run to prove the alert arrives (channel named when the backup issue is planned); speed (one Lighthouse mobile run per milestone against the 2-second target); accessibility (a keyboard pass and a VoiceOver pass on the attendance sheet); contrast (a WCAG AA check with a browser tool on each page); cost (a look at Railway's dashboard after the first week).
 - **Test data:** a `seed <scenario>` command resets a local database to a known state with fake members, as in heritage.
 - **Examples to follow:** filled in once the first tests exist.
@@ -398,3 +399,10 @@ The app is split into three modules: **accounts** (sign-in, roles), **roster** (
 - 2026-10-24: v1 is roster and attendance only; songs, sets, stats and history import become v2 (milestones renamed M1/M2/M3 to v1/v2/v3). Roster and attendance stand on their own, and the old v1 success measure couldn't be checked until about January. v2 work starts while v1 is being measured. This changes release order only: still one project, three modules and one database.
 - 2026-10-25: The page header says who is signed in (AC-8), and the Accounts pages mark "you", because admins manage accounts (including their own, which they may not demote or remove) and need to see which one is theirs.
 - 2026-10-25: The Members list puts Praise Team members first within each status group, and each status badge gets a small dot, so the list is quicker to scan. Status still outranks Praise Team, and the dot is decoration only: the word stays, so status is never shown by colour alone.
+- 2026-10-25: Events are created by a scheduled command, and admins also get a "Create upcoming events" button for when the schedule hasn't run or they want the weeks ahead now. A week runs Monday to Sunday. Only events dated today or later can be canceled, since past events feed rates and flags. The spelling is "canceled" throughout.
+- 2026-10-25: Admins can restore a canceled event (AT-3), under the same limit as canceling: dated today or later. The Events pages group events by month; a regular event shows its date and its kind as a badge (the weekday would only repeat the kind), and the Sunday kind is called "Sunday services". The "Create upcoming events" button becomes a quiet "Add the next few weeks of events" at the bottom of the Events page, since the daily job normally does it.
+- 2026-10-25: On the Events pages a regular event shows its weekday and date with its kind as a colored badge beside them (Midweek blue, Rehearsal amber, Services purple; special events and extra rehearsals stay gray). The earlier choice to leave out the weekday is reversed, and the Sunday kind is now "Services" rather than "Sunday services". The kind names are fixed in the code for now; making them editable in the Django admin is left for later.
+- 2026-10-25: Events can be edited while they are dated today or later: name, who's expected and notes, but not the date or kind (to move or retype one, cancel it and add another). Past events stay fixed, because who was expected feeds rates and flags; Skye fixes them in the Django admin. Events get a notes field. An extra rehearsal's name is optional, and an unnamed one shows as its date with its badge, like a regular event. Kind badges now say who is routine and who is not: a regular kind is the gray pill with a small colored dot, and a special event or extra rehearsal is a solid indigo pill, the one strong color in the list.
+- 2026-10-25: A special event or extra rehearsal can have its date corrected and can be deleted, because an admin types them and can get them wrong; "Canceled" would misdescribe an event that never should have existed. Both stop at the same line as cancel and edit: only events dated today or later, since who was expected at a past event feeds rates and flags (when attendance exists, they will also need an event with no marks). Regular events can only be canceled. The exception kinds' badge is the same pale indigo pill as the Praise Team label rather than a solid one, event notes are italic, and the "Praise Team only" note is dropped from the Events list; it will be called out on attendance sheets, where it matters.
+- 2026-10-25: On the Events pages a row is just its date or name on the left and its badges on the right, as on Members, and an upcoming row opens that event's page; editing, canceling, restoring and deleting live on that page, below the form, as on the account page, not as buttons on every row. A past row is not a link. "Canceled" is a pale red pill, the red twin of the pale indigo special-event badge, with no dot. The Accounts page's "Remove this account" link is centered the same way.
+- 2026-10-25: On an event's page, canceling, restoring and deleting are one section under the form, headed by what is available ("Cancel or delete", "Restore or delete", "Cancel" or "Restore"), with each action a full-size outlined button and a line saying what it does: cancel is for an event that was called off, delete for one added by mistake. The form's own button reads "Back" on an existing event, so "cancel" only ever means canceling the event.
