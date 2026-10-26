@@ -8,7 +8,7 @@
 </div>
 <p class="mt-2"><a href="{% url 'event-past' %}" class="link">Past events</a></p>
 {% if months %}
-{% include "roster/_event_months.html" with can_change=True %}
+{% include "roster/_event_months.html" with clickable=True %}
 {% else %}
 <p class="empty-state mt-6">No upcoming events. Use "Add the next few weeks of events" below.</p>
 {% endif %}

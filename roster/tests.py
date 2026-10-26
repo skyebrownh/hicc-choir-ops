@@ -1963,7 +1963,7 @@ class CancelEventTests(TestCase):
         with fake_now(2026, 11, 1):
             response = self.client.get("/events/past/")
 
-        self.assertContains(response, "Canceled</span>")
+        self.assertContains(response, '<span class="badge-danger">Canceled</span>')
 
 
 class EventListLayoutTests(TestCase):
@@ -1998,9 +1998,8 @@ class EventListLayoutTests(TestCase):
 
         body = self.page()
 
-        # The badge sits in the same line as the date, not on a line of its own.
-        # The date is on the left; the badge follows it on the right, not inside the date's line.
-        self.assertRegex(body, r'(?s)Sat, Nov 7</span>.*?<span class="badge">.*?Rehearsal</span>')
+        # The date is on the left; the badge is in the right-hand group, as on the Members list.
+        self.assertRegex(body, r'(?s)Sat, Nov 7</span>.*?justify-end gap-2">\s*<span class="badge">.*?Rehearsal</span>')
 
     def test_at1_the_kinds_are_called_midweek_rehearsal_and_services(self):
         make_event(date(2026, 11, 4), kind=Event.Kind.WEDNESDAY, name="")
