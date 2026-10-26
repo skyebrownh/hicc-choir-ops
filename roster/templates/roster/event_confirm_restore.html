@@ -9,7 +9,7 @@
     <form method="post" class="mt-6 space-y-6">
       {% csrf_token %}
       <button type="submit" class="btn-primary">Yes, restore it</button>
-      <a href="{% url 'event-list' %}" class="btn-secondary">Leave it canceled</a>
+      <a href="{% url 'event-edit' event.pk %}" class="btn-secondary">Leave it canceled</a>
     </form>
   </div>
 </div>

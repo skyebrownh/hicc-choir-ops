@@ -1957,19 +1957,6 @@ class CancelEventTests(TestCase):
         with fake_now(2026, 11, 1):
             self.assertEqual(self.client.post(f"/events/{event.pk}/cancel/").status_code, 404)
 
-    def test_at3_only_upcoming_events_that_are_not_canceled_offer_a_cancel_button(self):
-        live = make_event(date(2026, 11, 7), name="Live")
-        gone = make_event(date(2026, 11, 8), name="Gone", canceled=True)
-        past = make_event(date(2026, 10, 30), name="Past")
-
-        with fake_now(2026, 11, 1):
-            events_page = self.client.get("/events/")
-            past_page = self.client.get("/events/past/")
-
-        self.assertContains(events_page, f'href="/events/{live.pk}/cancel/"')
-        self.assertNotContains(events_page, f'href="/events/{gone.pk}/cancel/"')
-        self.assertNotContains(past_page, f'href="/events/{past.pk}/cancel/"')
-
     def test_at3_the_past_page_badges_canceled_events(self):
         make_event(date(2026, 10, 30), name="Old", canceled=True)
 
@@ -2006,13 +1993,14 @@ class EventListLayoutTests(TestCase):
         self.assertLess(body.index("October 2026"), body.index("October thing"))
         self.assertLess(body.index("October thing"), body.index("September 2026"))
 
-    def test_at1_a_regular_event_shows_its_weekday_and_date_with_the_kind_badge_beside_them(self):
+    def test_at1_a_regular_event_shows_its_weekday_and_date_on_the_left_and_its_kind_badge_on_the_right(self):
         make_event(date(2026, 11, 7), kind=Event.Kind.SATURDAY, name="")
 
         body = self.page()
 
         # The badge sits in the same line as the date, not on a line of its own.
-        self.assertRegex(body, r'<p[^>]*>\s*Sat, Nov 7\s*<span class="badge">.*?Rehearsal</span>\s*</p>')
+        # The date is on the left; the badge follows it on the right, not inside the date's line.
+        self.assertRegex(body, r'(?s)Sat, Nov 7</span>.*?<span class="badge">.*?Rehearsal</span>')
 
     def test_at1_the_kinds_are_called_midweek_rehearsal_and_services(self):
         make_event(date(2026, 11, 4), kind=Event.Kind.WEDNESDAY, name="")
@@ -2064,7 +2052,7 @@ class EventListLayoutTests(TestCase):
     def test_at2_event_notes_are_italic(self):
         make_event(date(2026, 11, 7), name="Concert", notes="Wear black")
 
-        self.assertIn('<p class="muted italic">Wear black</p>', self.page())
+        self.assertIn('<span class="block muted italic">Wear black</span>', self.page())
 
     def test_at1_the_create_events_button_is_below_the_list_and_explained(self):
         make_event(date(2026, 11, 7), name="Concert")
@@ -2096,14 +2084,6 @@ class RestoreEventTests(TestCase):
 
         self.assertContains(response, 'class="btn-danger"')
 
-    def test_at3_the_cancel_link_in_a_list_is_a_quiet_red_button(self):
-        event = make_event(date(2026, 11, 7))
-
-        with fake_now(2026, 11, 1):
-            response = self.client.get("/events/")
-
-        self.assertContains(response, f'href="/events/{event.pk}/cancel/" class="btn-danger-quiet"')
-
     def test_at3_restoring_a_canceled_upcoming_event_brings_it_back_in_place(self):
         make_event(date(2026, 11, 3), name="First")
         middle = make_event(date(2026, 11, 7), name="Middle", canceled=True)
@@ -2124,19 +2104,6 @@ class RestoreEventTests(TestCase):
         self.assertNotIn("Canceled</span>", body)
         self.assertLess(body.index("First"), body.index("Middle"))
         self.assertLess(body.index("Middle"), body.index("Last"))
-
-    def test_at3_only_canceled_upcoming_events_offer_restore(self):
-        canceled = make_event(date(2026, 11, 7), name="Gone", canceled=True)
-        live = make_event(date(2026, 11, 8), name="Live")
-        old = make_event(date(2026, 10, 30), name="Old", canceled=True)
-
-        with fake_now(2026, 11, 1):
-            events_page = self.client.get("/events/")
-            past_page = self.client.get("/events/past/")
-
-        self.assertContains(events_page, f'href="/events/{canceled.pk}/restore/" class="btn-quiet"')
-        self.assertNotContains(events_page, f'href="/events/{live.pk}/restore/"')
-        self.assertNotContains(past_page, f'href="/events/{old.pk}/restore/"')
 
     def test_at3_a_past_or_not_canceled_event_cannot_be_restored(self):
         old = make_event(date(2026, 10, 30), canceled=True)
@@ -2185,7 +2152,7 @@ class ExtraRehearsalNameTests(TestCase):
         with fake_now(2026, 11, 1):
             body = self.client.get("/events/").content.decode()
 
-        self.assertRegex(body, r'<p[^>]*>\s*Wed, Dec 2\s*<span class="badge-accent">Extra rehearsal</span>\s*</p>')
+        self.assertRegex(body, r'(?s)Wed, Dec 2</span>.*?<span class="badge-accent">Extra rehearsal</span>')
 
     def test_at2_a_named_extra_rehearsal_shows_its_name_with_the_date_below(self):
         make_event(date(2026, 12, 2), kind=Event.Kind.EXTRA, name="Band run-through")
@@ -2193,7 +2160,7 @@ class ExtraRehearsalNameTests(TestCase):
         with fake_now(2026, 11, 1):
             body = self.client.get("/events/").content.decode()
 
-        self.assertRegex(body, r'<p[^>]*>\s*Band run-through\s*<span class="badge-accent">Extra rehearsal</span>\s*</p>')
+        self.assertRegex(body, r'(?s)Band run-through</span>.*?Wed, Dec 2</span>.*?<span class="badge-accent">Extra rehearsal</span>')
 
     def test_at2_a_special_event_still_needs_a_name(self):
         response = self.client.post(
@@ -2361,17 +2328,6 @@ class EditEventTests(TestCase):
         event.refresh_from_db()
         self.assertEqual(event.name, "Earlier")
 
-    def test_at2_only_upcoming_rows_offer_edit(self):
-        upcoming = make_event(date(2026, 11, 7), name="Upcoming")
-        earlier = make_event(date(2026, 10, 30), name="Earlier")
-
-        with fake_now(2026, 11, 1):
-            events_page = self.client.get("/events/")
-            past_page = self.client.get("/events/past/")
-
-        self.assertContains(events_page, f'href="/events/{upcoming.pk}/edit/"')
-        self.assertNotContains(past_page, f'href="/events/{earlier.pk}/edit/"')
-
     def test_at2_leaders_get_not_found_and_signed_out_visitors_go_to_sign_in(self):
         # Fixed "today": after the event's date these would still pass, but for being past, not for the role.
         clock = fake_now(2026, 11, 1)
@@ -2450,19 +2406,6 @@ class DeleteEventTests(TestCase):
 
         self.assertTrue(Event.objects.filter(pk=event.pk).exists())
 
-    def test_at2_only_the_edit_page_of_a_special_or_extra_event_offers_delete(self):
-        special = make_event(date(2026, 11, 7), name="Concert")
-        regular = make_event(date(2026, 11, 8), kind=Event.Kind.SUNDAY, name="")
-
-        with fake_now(2026, 11, 1):
-            special_page = self.client.get(f"/events/{special.pk}/edit/")
-            regular_page = self.client.get(f"/events/{regular.pk}/edit/")
-            list_page = self.client.get("/events/")
-
-        self.assertContains(special_page, f'href="/events/{special.pk}/delete/"')
-        self.assertNotContains(regular_page, "/delete/")
-        self.assertNotContains(list_page, "/delete/")
-
     def test_at2_leaders_get_not_found_and_signed_out_visitors_go_to_sign_in(self):
         # Fixed "today": after the event's date these would still pass, but for being past, not for the role.
         clock = fake_now(2026, 11, 1)
@@ -2476,3 +2419,92 @@ class DeleteEventTests(TestCase):
         self.assertEqual(self.client.get(f"/events/{event.pk}/delete/").status_code, 404)
         self.assertEqual(self.client.post(f"/events/{event.pk}/delete/").status_code, 404)
         self.assertTrue(Event.objects.filter(pk=event.pk).exists())
+
+
+class EventRowAndPageActionTests(TestCase):
+    def setUp(self):
+        self.client.force_login(Account.objects.create_superuser("admin@example.com"))
+
+    def pages(self):
+        with fake_now(2026, 11, 1):
+            return self.client.get("/events/"), self.client.get("/events/past/")
+
+    def test_at2_upcoming_rows_link_to_the_event_page_and_past_rows_do_not(self):
+        upcoming = make_event(date(2026, 11, 7), name="Upcoming")
+        earlier = make_event(date(2026, 10, 30), name="Earlier")
+
+        events_page, past_page = self.pages()
+
+        self.assertContains(events_page, f'href="/events/{upcoming.pk}/edit/"')
+        self.assertNotContains(past_page, f'href="/events/{earlier.pk}/edit/"')
+
+    def test_at3_the_lists_carry_no_edit_cancel_restore_or_delete_buttons(self):
+        make_event(date(2026, 11, 7), name="Live")
+        make_event(date(2026, 11, 8), name="Gone", canceled=True)
+        make_event(date(2026, 10, 30), name="Earlier")
+
+        events_page, past_page = self.pages()
+
+        for page in (events_page, past_page):
+            for action in ["/cancel/", "/restore/", "/delete/"]:
+                self.assertNotContains(page, action)
+            self.assertNotContains(page, "btn-danger-quiet")
+            self.assertNotContains(page, "btn-quiet")
+
+    def test_at3_the_canceled_badge_is_a_pale_red_pill(self):
+        make_event(date(2026, 11, 8), name="Gone", canceled=True)
+
+        events_page, _ = self.pages()
+
+        self.assertContains(events_page, '<span class="badge-danger">Canceled</span>')
+
+    def test_at3_the_event_page_offers_cancel_for_a_live_event_inside_the_card(self):
+        event = make_event(date(2026, 11, 7), kind=Event.Kind.SATURDAY, name="")
+
+        with fake_now(2026, 11, 1):
+            body = self.client.get(f"/events/{event.pk}/edit/").content.decode()
+
+        card = body.split('<div class="card">', 1)[1]
+        self.assertIn(f'<a href="/events/{event.pk}/cancel/" class="link !text-red-600">Cancel this event</a>', card)
+        self.assertNotIn("Restore this event", card)
+
+    def test_at3_the_event_page_offers_restore_for_a_canceled_event(self):
+        event = make_event(date(2026, 11, 7), kind=Event.Kind.SATURDAY, name="", canceled=True)
+
+        with fake_now(2026, 11, 1):
+            body = self.client.get(f"/events/{event.pk}/edit/").content.decode()
+
+        card = body.split('<div class="card">', 1)[1]
+        self.assertIn(f'href="/events/{event.pk}/restore/"', card)
+        self.assertIn("Restore this event", card)
+        self.assertNotIn("Cancel this event", card)
+
+    def test_at2_the_event_page_offers_delete_inside_the_card_for_special_and_extra_only(self):
+        special = make_event(date(2026, 11, 7), name="Concert")
+        regular = make_event(date(2026, 11, 8), kind=Event.Kind.SUNDAY, name="")
+
+        with fake_now(2026, 11, 1):
+            special_body = self.client.get(f"/events/{special.pk}/edit/").content.decode()
+            regular_body = self.client.get(f"/events/{regular.pk}/edit/").content.decode()
+
+        self.assertIn(f'href="/events/{special.pk}/delete/"', special_body.split('<div class="card">', 1)[1])
+        self.assertNotIn("/delete/", regular_body)
+
+    def test_at3_the_event_actions_are_centered_under_the_form(self):
+        event = make_event(date(2026, 11, 7), name="Concert")
+
+        with fake_now(2026, 11, 1):
+            body = self.client.get(f"/events/{event.pk}/edit/").content.decode()
+
+        self.assertIn('<div class="mt-4 flex flex-col items-center">', body)
+
+    def test_at3_keep_it_and_leave_it_canceled_go_back_to_the_event_page(self):
+        live = make_event(date(2026, 11, 7), name="Live")
+        gone = make_event(date(2026, 11, 8), name="Gone", canceled=True)
+
+        with fake_now(2026, 11, 1):
+            cancel_page = self.client.get(f"/events/{live.pk}/cancel/")
+            restore_page = self.client.get(f"/events/{gone.pk}/restore/")
+
+        self.assertContains(cancel_page, f'href="/events/{live.pk}/edit/"')
+        self.assertContains(restore_page, f'href="/events/{gone.pk}/edit/"')

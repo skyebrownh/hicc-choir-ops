@@ -26,7 +26,7 @@
       <a href="{% url 'account-list' %}" class="btn-secondary">Cancel</a>
     </form>
     {% if account %}
-    <a href="{% url 'account-remove' account.pk %}" class="link mt-4 !text-red-600">Remove this account</a>
+    <p class="mt-4 text-center"><a href="{% url 'account-remove' account.pk %}" class="link !text-red-600">Remove this account</a></p>
     {% endif %}
   </div>
 </div>

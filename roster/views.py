@@ -2,7 +2,6 @@ from itertools import groupby
 
 from django.contrib import messages
 from django.db import transaction
-from django.urls import reverse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.dateformat import format as format_date
@@ -236,13 +235,7 @@ def event_edit(request, pk):
         form.save()
         messages.success(request, f"{event.title} on {date_format(event.date)} is updated.")
         return redirect("event-list")
-    # AT-2: only a special event or extra rehearsal can be deleted; a regular one would come back with the schedule.
-    delete_url = None if event.is_weekly else reverse("event-delete", args=[event.pk])
-    return render(
-        request,
-        "roster/event_form.html",
-        {"form": form, "summary": summary, "title": "Edit event", "delete_url": delete_url},
-    )
+    return render(request, "roster/event_form.html", {"form": form, "event": event, "summary": summary, "title": "Edit event"})
 
 
 @role_required(Role.ADMIN)

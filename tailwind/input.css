@@ -84,18 +84,7 @@
   .status-dot-inactive {
     @apply border-2 border-gray-500;
   }
-  /* AT-3: the red dot before "Canceled". Decoration only; the word says it. red-700 holds 3:1 against the gray pill. */
-  .status-dot-canceled {
-    @apply bg-red-700;
-  }
-  /* AT-3: Cancel and Restore are rare, so in a list they are small pills the size of the badges beside them. The
-     ::after widens the tap area to 44px (NFR) without making the pill any taller. */
-  .btn-danger-quiet {
-    @apply relative inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium text-red-700 ring-1 ring-red-300 ring-inset hover:bg-red-50 after:absolute after:inset-x-0 after:-inset-y-2 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600;
-  }
-  .btn-quiet {
-    @apply relative inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium text-gray-700 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 after:absolute after:inset-x-0 after:-inset-y-2 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600;
-  }
+  /* AT-3: the solid red button on the cancel and delete confirm pages, where it is the point. */
   .btn-danger {
     @apply flex min-h-11 w-full items-center justify-center rounded-md px-3.5 py-2.5 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 bg-red-600 text-white shadow-xs hover:bg-red-500;
   }
@@ -110,6 +99,10 @@
   }
   .kind-dot-sunday {
     @apply bg-purple-700;
+  }
+  /* AT-3: the pale red twin of .badge-accent, for "Canceled". red-700 on red-50 holds well over AA. */
+  .badge-danger {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium bg-red-50 text-red-700;
   }
   .badge-accent {
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-base font-medium bg-indigo-50 text-indigo-700;

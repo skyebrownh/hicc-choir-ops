@@ -13,8 +13,18 @@
       <button type="submit" class="btn-primary">Save</button>
       <a href="{% url 'event-list' %}" class="btn-secondary">Cancel</a>
     </form>
+    {# AT-2, AT-3: what can be done to the event itself, below the form, centered, as on the account page. #}
+    {% if event %}
+    <div class="mt-4 flex flex-col items-center">
+      {% if event.canceled %}
+      <a href="{% url 'event-restore' event.pk %}" class="link">Restore this event</a>
+      {% else %}
+      <a href="{% url 'event-cancel' event.pk %}" class="link !text-red-600">Cancel this event</a>
+      {% endif %}
+      {# AT-2: only for an event typed in by hand, and for a mistake rather than a called-off event. #}
+      {% if not event.is_weekly %}<a href="{% url 'event-delete' event.pk %}" class="link !text-red-600">Delete this event</a>{% endif %}
+    </div>
+    {% endif %}
   </div>
-  {# AT-2: for a mistake, not a called-off event. Kept out of the list rows, where Cancel is. #}
-  {% if delete_url %}<p class="mt-4 text-center"><a href="{{ delete_url }}" class="link text-red-700 hover:text-red-600">Delete this event</a></p>{% endif %}
 </div>
 {% endblock %}

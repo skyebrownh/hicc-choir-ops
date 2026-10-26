@@ -1,0 +1,16 @@
+{# AT-1, AT-2, AT-3: what a row says. Text on the left; the badges on the right, as on the Members list. #}
+<span>
+  {# A nameless event (every regular one, and an unnamed extra rehearsal) is just its date. A named one shows the name, with its date below. #}
+  {% if event.name %}
+  <span class="block font-medium text-gray-900">{{ event.name }}</span>
+  <span class="block muted">{{ event.date|date:"D, M j" }}</span>
+  {% else %}
+  <span class="block font-medium text-gray-900">{{ event.date|date:"D, M j" }}</span>
+  {% endif %}
+  {# AT-2: this event's own note, as typed. Italic, so it reads apart from the date above it. #}
+  {% if event.notes %}<span class="block muted italic">{{ event.notes|linebreaksbr }}</span>{% endif %}
+</span>
+<span class="flex flex-wrap items-center justify-end gap-2">
+  {% include "components/_kind_badge.html" %}
+  {% if event.canceled %}{% include "components/_canceled_badge.html" %}{% endif %}
+</span>

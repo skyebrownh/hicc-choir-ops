@@ -728,6 +728,14 @@ class AccountPagesTests(TestCase):
         self.admin.refresh_from_db()
         self.assertEqual(self.admin.role, Role.ADMIN)
 
+    def test_ac5_the_remove_link_is_centered_inside_the_card(self):
+        leader = self.make_leader()
+
+        body = self.client.get(f"/accounts/{leader.pk}/edit/").content.decode()
+
+        card = body.split('<div class="card">', 1)[1]
+        self.assertIn('<p class="mt-4 text-center"><a href="/accounts/%d/remove/" class="link !text-red-600">' % leader.pk, card)
+
     def test_ac5_removing_an_account_needs_the_confirm_page_to_be_submitted(self):
         leader = self.make_leader()
 
